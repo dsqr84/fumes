@@ -44,7 +44,8 @@ replaces the copy that is already running.
 ## Add your keys
 
 Each provider needs its own key; [`fumes/guides/`](fumes/guides/) says which kind and where to
-create it. Until the Settings window lands, from the Fumes folder:
+create it. **Read [Keeping your keys safe](fumes/guides/key-safety.md) first:** some of these are Admin
+keys, which can manage your whole account, not just read it. Until the Settings window lands, from the Fumes folder:
 
 ```
 .venv\Scripts\python -m fumes key set openai        # asks for the key; nothing is shown or saved to a file

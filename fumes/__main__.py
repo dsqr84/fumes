@@ -56,11 +56,24 @@ def cli(argv):
                     print(f"fumes: unknown provider {rest[1]!r}", file=sys.stderr)
                     return 2
                 if rest[0] == "set":
-                    store.set(m.ID, getpass.getpass(f"{m.NAME} {m.KEY_LABEL} (not shown): "))
+                    from . import keycheck
+                    value = keystore.valid_key(getpass.getpass(f"{m.NAME} {m.KEY_LABEL} (not shown): "))
+                    if value is None:
+                        print("fumes: that does not look like a key; nothing saved", file=sys.stderr)
+                        return 2
+                    bad = keycheck.foreign(m.ID, value)
+                    if bad:
+                        print(f"fumes: {bad}", file=sys.stderr)
+                        return 2
+                    store.set(m.ID, value)
                     print(f"saved the {m.NAME} key")
+                    hint = keycheck.kind_hint(m.ID, value)
+                    if hint:
+                        print(f"fumes: note: {hint}", file=sys.stderr)
                 else:
                     store.delete(m.ID)
-                    print(f"removed the {m.NAME} key")
+                    print(f"removed the {m.NAME} key from this computer. It still works until you revoke it "
+                          f"on {m.NAME}'s website.")
                 return 0
             print("usage: fumes key list | key set <id> | key delete <id>", file=sys.stderr)
             return 2

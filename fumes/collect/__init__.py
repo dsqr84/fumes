@@ -17,6 +17,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
+from .. import keycheck
 from .http import Http, NotConnected, ProviderError  # noqa: F401 (re-exported)
 from .ledger import Ledger  # noqa: F401 (re-exported)
 
@@ -134,6 +135,9 @@ def collect(now, store, ledger, http=None, previous=None, enabled=None):
         try:
             if not ctx.key:
                 raise NotConnected("No key saved. Add one in Settings.")
+            bad = keycheck.foreign(mod.ID, ctx.key)
+            if bad:                  # never send another provider's key to this one
+                raise NotConnected(bad)
             got = mod.run(ctx)
             bal = got.get("balance")
             entry = dict(summarise(got.get("rows") or [], now), status="ok", checked=stamp,
@@ -176,6 +180,8 @@ def set_anchor(pid, usd, now, store, ledger, http=None):
         raise ValueError(f"{pid} reports its own balance")
     day_spend, warning = 0.0, ""
     key = store.get(pid)
+    if key and keycheck.foreign(pid, key):
+        key, warning = None, "The saved key looks like another provider's, so today's spend was not read."
     if key:
         ctx = Context(now=now, key=key, http=http or Http(), ledger=ledger, pid=pid)
         try:

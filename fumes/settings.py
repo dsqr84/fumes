@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (QCheckBox, QHBoxLayout, QLabel, QLineEdit, QListWid
                              QMessageBox, QPushButton, QStackedWidget, QTextBrowser, QPlainTextEdit,
                              QVBoxLayout, QWidget)
 
-from . import collect, fonts, keystore, links, logos, statusline, win
+from . import collect, fonts, keycheck, keystore, links, logos, statusline, win
 from . import __version__
 
 GUIDES = Path(__file__).parent / "guides"
@@ -139,6 +139,9 @@ def load_guide(pid):
 
 def run_test(mod, key, now, http, ledger):
     """One run of a provider with `key`; returns the text to show. Runs on a worker thread."""
+    bad = keycheck.foreign(mod.ID, key)
+    if bad:                      # the page checks too; this is the last gate before anything is sent
+        return f"Not sent: {bad}"
     try:
         ctx = collect.Context(now=now, key=key, http=http, ledger=ledger, pid=mod.ID)
         got = mod.run(ctx)
@@ -271,17 +274,31 @@ class ProviderPage(Page):
         if value is None:
             self._error(self.key_msg, "That does not look like a key.")
             return
+        bad = keycheck.foreign(self.mod.ID, value)
+        if bad:
+            self.key.setText("")
+            self._error(self.key_msg, bad)
+            return
         try:
             self.w.store.set(self.mod.ID, value)
         except keystore.KeyStoreError as e:
             self._error(self.key_msg, str(e))
             return
         self.key.setText("")
-        self._note(self.key_msg, "Saved.")
+        hint = keycheck.kind_hint(self.mod.ID, value)
+        if hint:
+            self._error(self.key_msg, "Saved, but: " + hint)
+        elif "admin" in self.mod.KEY_LABEL.lower():
+            self._note(self.key_msg, "Saved. Admin keys can manage your whole organisation: use one made only "
+                                     "for Fumes. See Keeping keys safe.")
+        else:
+            self._note(self.key_msg, "Saved.")
         self.refresh()
 
     def do_remove(self):
-        ask = self.w.confirm(f"Remove the saved {self.mod.NAME} key?")
+        ask = self.w.confirm(f"Remove the saved {self.mod.NAME} key from this computer?\n\n"
+                             f"This does not revoke it. If you are finished with it, also delete it on "
+                             f"{self.mod.NAME}'s website, so it stops working everywhere.")
         if not ask:
             return
         try:
@@ -310,6 +327,14 @@ class ProviderPage(Page):
                 return
         if not key:
             self._error(self.test_msg, "Not connected: No key saved. Add one above.")
+            return
+        bad = keycheck.foreign(self.mod.ID, key)
+        if bad:
+            self._error(self.test_msg, bad)
+            return
+        hint = keycheck.kind_hint(self.mod.ID, key)
+        if hint:
+            self._error(self.test_msg, hint)
             return
         # a throwaway copy of the ledger: a test run must not record balance samples in the real one
         scratch = collect.Ledger(Path(tempfile.gettempdir()) / "fumes-test-ledger.json")
@@ -442,6 +467,22 @@ class ClaudePage(Page):
         self.last.setText(f"Last reading: {upd}" if upd else "No reading yet")
 
 
+class SafetyPage(Page):
+    """Keeping keys safe: the guide, read-only."""
+
+    def __init__(self, win_):
+        super().__init__()
+        lay = QVBoxLayout(self)
+        lay.setSpacing(10)
+        lay.addWidget(self.label("Keeping keys safe", "title", wrap=False))
+        self.guide = SafeBrowser(win_.open_link, link=win_.colors['link'])
+        self.guide.setMarkdown(load_guide("key-safety"))
+        lay.addWidget(self.guide, 1)
+
+    def refresh(self):
+        pass
+
+
 class GeneralPage(Page):
     def __init__(self, win_):
         super().__init__()
@@ -507,6 +548,7 @@ class SettingsWindow(QWidget):
         for mod in collect.providers():
             self._add(mod.ID, mod.NAME, ProviderPage(self, mod))
         self._add("claude", "Claude limits", ClaudePage(self))
+        self._add("safety", "Keeping keys safe", SafetyPage(self))
         self._add("general", "General", GeneralPage(self))
         self.nav.currentRowChanged.connect(self._changed)
         self.nav.setCurrentRow(0)
@@ -538,7 +580,7 @@ class SettingsWindow(QWidget):
         self.pages[pid] = page
         self.stack.addWidget(page)
         item = QListWidgetItem(name)
-        if pid != "general":
+        if pid not in ("general", "safety"):
             item.setIcon(QIcon(self.logo(pid, name, 20)))
         self.nav.addItem(item)
 

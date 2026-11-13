@@ -58,7 +58,7 @@ def texts(w):
 
 def test_pages_and_title(env):
     assert env.windowTitle() == "Fumes Settings"
-    assert env.ids == [m.ID for m in collect.providers()] + ["claude", "general"]
+    assert env.ids == [m.ID for m in collect.providers()] + ["claude", "safety", "general"]
     assert env.nav.count() == len(env.ids)
 
 
@@ -352,3 +352,43 @@ def test_menu_has_settings(qapp, tmp_path):
     app.tick_timer.stop()
     app.fetch_timer.stop()
     app.tray.hide()
+
+
+def test_foreign_key_is_refused_on_save_and_test(env):
+    p = env.pages["deepseek"]
+    p.key.setText("sk-ant-admin01-" + "x" * 30)
+    p.do_save()
+    assert env.store.get("deepseek") is None and "Anthropic" in p.key_msg.text() and p.key.text() == ""
+    p.key.setText("sk-ant-admin01-" + "x" * 30)
+    calls = len(env.http.calls)
+    p.do_test()
+    assert "Anthropic" in p.test_msg.text() and len(env.http.calls) == calls and not p.test_busy()
+
+
+def test_run_test_is_the_last_gate(env):
+    from fumes.collect import deepseek
+    out = settings.run_test(deepseek, "sk-proj-" + "y" * 30, None, env.http, env.ledger)
+    assert out.startswith("Not sent:") and "OpenAI" in out
+
+
+def test_admin_key_save_note_and_kind_hint(env):
+    p = env.pages["openai"]
+    p.key.setText("sk-admin-" + "z" * 30)
+    p.do_save()
+    assert "Admin keys can manage" in p.key_msg.text() and "Keeping keys safe" in p.key_msg.text()
+    p.key.setText("sk-proj-" + "z" * 30)
+    p.do_save()
+    assert p.key_msg.text().startswith("Saved, but:") and "Admin key" in p.key_msg.text()
+
+
+def test_remove_says_it_does_not_revoke(env):
+    p = env.pages["deepseek"]
+    env.store.set("deepseek", "sk-" + "0123456789abcdef" * 2)
+    p.refresh()
+    p.do_remove()
+    assert "does not revoke" in env.asked[-1] and env.store.get("deepseek") is None
+
+
+def test_safety_page_shows_the_guide(env):
+    text = env.pages["safety"].guide.toPlainText()
+    assert "Where keys leak" in text and "If a key leaks" in text

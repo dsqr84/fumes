@@ -1,11 +1,12 @@
-"""fal.ai: the billing API (balance) and the usage API (cost per endpoint per day). An Admin key."""
+"""fal.ai: the billing API (balance) and the usage API (cost per endpoint per day). A key on fal's BILLING
+preset (billing:usage:read, auth:keys:read, account:users:read): read-only, cannot call models."""
 
 import urllib.parse
 
 from . import ProviderError, utc_day, window
 
 ID, NAME = "fal", "fal.ai"
-KEY_LABEL = "Admin key"
+KEY_LABEL = "BILLING key"
 ANCHORED = False
 BILLING = "https://api.fal.ai/v1/account/billing?expand=credits"
 USAGE = "https://api.fal.ai/v1/models/usage"

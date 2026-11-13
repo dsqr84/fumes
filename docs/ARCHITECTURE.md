@@ -14,6 +14,11 @@ These are durable facts about the code: how the parts fit and what is baked in t
   `stale`. `collect/http.py` is the only network path for keys: HTTPS only (refused before connecting), redirects
   never followed (urllib would resend the key header), 8 MB cap, 20 s timeout, and errors carry the host and
   exception type or the HTTP status and error type only, never a body (a provider's message can quote the key).
+- **Wrong-provider check** (`keycheck.py`): a key whose format clearly belongs to another provider (`sk-ant-`,
+  `sk-proj-`/`sk-admin-`/`sk-svcacct-`, legacy OpenAI keys containing `T3BlbkFJ`, DeepSeek's `sk-` + 32 hex) is never
+  saved or sent: Save, Test (`settings.run_test` is the last gate), `fumes key set`, `collect()` and `set_anchor`. Only
+  unmistakable formats are recognised (fal's is not); anything else passes. `kind_hint` warns about the right
+  provider's wrong kind of key (project or workspace keys where an Admin key is needed).
 - **Keys** (`keystore.py`): Windows Credential Manager generic credentials `Fumes/<id>`, persisted per user on this
   machine, through ctypes (no extra dependency). Off Windows, read-only `FUMES_KEY_<ID>` environment variables.
   **The ctypes calls are not run off Windows.**

@@ -46,7 +46,7 @@ def test_key_set_uses_getpass_and_delete(env, capsys, monkeypatch):
 def test_key_set_rejects_bad_input_and_unknown(env, capsys, monkeypatch):
     store, _, _ = env
     monkeypatch.setattr("getpass.getpass", lambda prompt="": "has space inside")
-    assert m.main(["key", "set", "fal"]) == 1 and store.get("fal") is None
+    assert m.main(["key", "set", "fal"]) == 2 and store.get("fal") is None
     assert "has space" not in capsys.readouterr().err
     assert m.main(["key", "set", "nope"]) == 2
     assert m.main(["key", "bogus"]) == 2 and m.main(["key"]) == 2
