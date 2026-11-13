@@ -116,6 +116,8 @@ def main(argv=None):
     ap.add_argument("--collapsed", action="store_true", help="with --once-png: render the strip collapsed")
     ap.add_argument("--hover", metavar="TARGET", help="with --once-png: draw the hover plate on `claude`, a "
                     "provider id or `button`")
+    ap.add_argument("--settings", metavar="PAGE", help="with --once-png: render the Settings window on that page "
+                    "(a provider id, `claude` or `general`) instead of the strip")
     ap.add_argument("--stale", action="store_true", help="with --once-png: draw as a failed fetch")
     args = ap.parse_args(argv)
 
@@ -131,6 +133,20 @@ def main(argv=None):
 
     app = QApplication.instance() or QApplication(sys.argv[:1])
     app.setQuitOnLastWindowClosed(False)
+
+    if args.once_png and args.settings:
+        import tempfile
+
+        from . import collect, keystore
+        from .settings import SettingsWindow
+        with tempfile.TemporaryDirectory() as tmp:
+            w = SettingsWindow(keystore.MemoryStore(), collect.Ledger(Path(tmp) / "ledger.json"), folder=Path(tmp),
+                               cfg=cfg, theme=args.theme or "dark", dpr=args.dpr)
+            if args.settings not in w.ids:
+                print(f"fumes: no settings page {args.settings!r}", file=sys.stderr)
+                return 1
+            w.show_page(args.settings)
+            return 0 if w.render_png(args.once_png, args.dpr) else 1
 
     if args.once_png:
         strip = ui.Strip(cfg, user_logo_dir=folder, theme=args.theme)

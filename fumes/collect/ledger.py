@@ -15,6 +15,7 @@ import json
 import math
 import os
 import tempfile
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -47,6 +48,9 @@ class Ledger:
         self.path = Path(path)
         self.anchors = {}     # pid -> [{"usd", "ts", "day_spend"}], oldest first
         self.samples = {}     # pid -> [[ts, usd]], oldest first
+        # Settings (UI thread) and collection (a worker thread) share one ledger: every change and the
+        # snapshot that save() writes happen under this lock.
+        self._lock = threading.RLock()
 
     # ---- load / save ------------------------------------------------------
     @classmethod
@@ -78,18 +82,20 @@ class Ledger:
         return led
 
     def save(self):
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(dir=self.path.parent, prefix=".ledger-", suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump({"anchors": self.anchors, "samples": self.samples}, f)
-            os.replace(tmp, self.path)
-        except BaseException:
+        with self._lock:
+            text = json.dumps({"anchors": self.anchors, "samples": self.samples})
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            fd, tmp = tempfile.mkstemp(dir=self.path.parent, prefix=".ledger-", suffix=".tmp")
             try:
-                os.unlink(tmp)
-            except OSError:
-                pass
-            raise
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    f.write(text)
+                os.replace(tmp, self.path)
+            except BaseException:
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+                raise
 
     # ---- anchors ----------------------------------------------------------
     def anchor(self, pid):
@@ -102,11 +108,13 @@ class Ledger:
         if usd is None or usd < 0:
             raise ValueError("a balance is a dollar amount, zero or more")
         rec = {"usd": round(usd, 6), "ts": _stamp(now), "day_spend": round(max(_usd(day_spend) or 0.0, 0.0), 6)}
-        self.anchors[pid] = (self.anchors.get(pid, []) + [rec])[-MAX_ANCHORS:]
+        with self._lock:
+            self.anchors[pid] = (self.anchors.get(pid, []) + [rec])[-MAX_ANCHORS:]
         return rec
 
     def clear_anchor(self, pid):
-        self.anchors.pop(pid, None)
+        with self._lock:
+            self.anchors.pop(pid, None)
 
     def anchored_balance(self, pid, rows):
         """(balance, anchor) from the newest anchor and cost rows [(day, label, usd)]: the anchor minus what
@@ -124,15 +132,16 @@ class Ledger:
         usd = _usd(usd)
         if usd is None:
             return
-        rows = self.samples.setdefault(pid, [])
-        ts = _stamp(now)
-        if rows:
-            last = _parse(rows[-1][0])
-            if last and (now - last).total_seconds() < MIN_SAMPLE_GAP:
-                rows.pop()
-        rows.append([ts, round(usd, 6)])
-        cutoff = _stamp(now - timedelta(days=SAMPLE_DAYS))
-        self.samples[pid] = [r for r in rows if r[0] >= cutoff]
+        with self._lock:
+            rows = list(self.samples.get(pid, []))
+            ts = _stamp(now)
+            if rows:
+                last = _parse(rows[-1][0])
+                if last and (now - last).total_seconds() < MIN_SAMPLE_GAP:
+                    rows.pop()
+            rows.append([ts, round(usd, 6)])
+            cutoff = _stamp(now - timedelta(days=SAMPLE_DAYS))
+            self.samples[pid] = [r for r in rows if r[0] >= cutoff]
 
     def spend_from_balance(self, pid, label="spend (from balance changes)"):
         """Cost rows [(day, label, usd)] estimated from the falls between balance samples, each counted on

@@ -6,13 +6,18 @@ balance API, so you enter your current credit once and Fumes counts it down.
 
 ## Get an Admin key
 
-The cost report is part of the Admin API, which needs an **organisation** account and an **Admin
-key** (it starts with `sk-ant-admin`). An ordinary API key (`sk-ant-api…`) is refused.
+The cost report is part of the Admin API, which needs an **Admin key** (it starts with
+`sk-ant-admin`). An ordinary API key (`sk-ant-api…`) is refused.
 
-1. If your Console account is an individual one, set up an organisation first:
-   [Settings → Organization](https://platform.claude.com/settings/organization).
-2. As an organisation admin, open [Settings → Admin keys](https://platform.claude.com/settings/admin-keys),
-   create a key named `Fumes`, and copy it.
+**An individual account has no Admin API.** If you signed up to the Claude Console on your own, your
+account is an individual one: there is no Admin keys page, and the cost report is refused even with
+the right key. Convert it to a team first; you can be its only member.
+
+1. **Convert to a team:** open [Settings → Organization](https://platform.claude.com/settings/organization)
+   and follow the prompt to turn your individual account into a team (organisation).
+2. **Create the Admin key:** as the team's admin, open
+   [Settings → Admin keys](https://platform.claude.com/settings/admin-keys), create a key named `Fumes`,
+   and copy it.
 3. Paste it into the key field here and choose **Test**.
 
 An Admin key can manage your organisation, not just read costs. Fumes only calls the cost report

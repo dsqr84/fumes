@@ -102,3 +102,32 @@ def test_spend_from_balance_counts_falls_ignores_rises():
     assert all(r[0] == "2026-11-13" for r in rows)
     assert led.spend_from_balance("none") == [] and led.first_sample("none") is None
     assert led.first_sample("d") == "2026-11-13T12:00:00Z"
+
+
+def test_concurrent_changes_and_saves_never_raise(tmp_path):
+    """Settings (UI thread) and collection (a worker) share one ledger."""
+    import threading
+    from datetime import datetime, timedelta, timezone
+    led = Ledger(tmp_path / "l.json")
+    t0 = datetime(2026, 11, 1, tzinfo=timezone.utc)
+    errors = []
+
+    def writer():
+        try:
+            for i in range(400):
+                led.record_balance("deepseek", 100 - i * 0.1, t0 + timedelta(minutes=2 * i))
+                led.set_anchor("openai", i, t0 + timedelta(minutes=i))
+        except Exception as e:      # noqa: BLE001
+            errors.append(e)
+
+    def saver():
+        try:
+            for _ in range(200):
+                led.save()
+        except Exception as e:      # noqa: BLE001
+            errors.append(e)
+    threads = [threading.Thread(target=writer), threading.Thread(target=saver)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert errors == []
+    assert Ledger.load(tmp_path / "l.json").anchor("openai") is not None

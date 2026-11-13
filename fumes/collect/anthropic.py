@@ -28,8 +28,8 @@ def costs(ctx, start):
             if ctx.key.startswith("sk-ant-api"):
                 why = "This is a workspace API key; the cost report needs an Admin key (sk-ant-admin…)."
             else:
-                why = ("The Admin API needs an organisation account: set one up in the Claude Console, then "
-                       "create a key on its Admin keys page.")
+                why = ("The Admin API is not available to individual accounts: convert yours to a team in the "
+                       "Claude Console (Settings, Organization), then create a key on the Admin keys page.")
             raise NotConnected(f"Anthropic refused the cost report: {refusal(status, body)}. {why}")
         if status != 200 or not isinstance(body, dict):
             raise ProviderError(refusal(status, body))

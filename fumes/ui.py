@@ -746,6 +746,7 @@ def build_menu(app):
     app.strip.collapsedChanged.connect(app.collapse_action.setChecked)
     menu.addAction(app.collapse_action)
     menu.addSeparator()
+    menu.addAction("Settings…", app.open_settings)
     menu.addAction("Refresh now", app.refresh_all)
     menu.addAction("Open details page", app.open_details)
     app.autostart = QAction("Start with Windows", menu)
@@ -821,6 +822,21 @@ class App:
         """Start a fresh copy, then quit this one. If the new one cannot start, keep running."""
         if win.relaunch():
             QApplication.quit()
+
+    def open_settings(self, page=None):
+        """The one shared Settings window: created on first use, raised when already open."""
+        from .settings import SettingsWindow
+        if getattr(self, "settings_window", None) is None:
+            self.settings_window = SettingsWindow(
+                self.store, self.ledger, http=self.http, folder=self.folder, cfg=self.cfg,
+                autostart_action=self.autostart, on_refresh=self.refresh_all, theme=self.strip.theme)
+        w = self.settings_window
+        if page:
+            w.show_page(page)
+        w.show()
+        w.raise_()
+        w.activateWindow()
+        return w
 
     def open_details(self):
         links.open_link(self.cfg, self.cfg.details_url)

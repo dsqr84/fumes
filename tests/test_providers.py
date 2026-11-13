@@ -214,7 +214,8 @@ def test_anthropic_auth_refusals_not_connected(tmp_path, status):
     assert LEAK not in msg and "abcdef" not in msg
     with pytest.raises(NotConnected) as e:
         anthropic.run(ctx("anthropic", FakeHttp({AN: (status, body)}), tmp_path, key="sk-ant-admin01-zzz"))
-    assert "workspace API key" not in str(e.value) and "organisation" in str(e.value)
+    msg = str(e.value)
+    assert "workspace API key" not in msg and "individual accounts" in msg and "convert yours to a team" in msg
 
 
 def test_anthropic_other_error_clean(tmp_path):

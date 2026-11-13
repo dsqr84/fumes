@@ -43,7 +43,7 @@ replaces the copy that is already running.
 
 ## Add your keys
 
-Each provider needs its own key; [`docs/providers/`](docs/providers/) says which kind and where to
+Each provider needs its own key; [`fumes/guides/`](fumes/guides/) says which kind and where to
 create it. Until the Settings window lands, from the Fumes folder:
 
 ```
@@ -57,7 +57,7 @@ Keys are generic credentials named `Fumes/<provider>` in Windows Credential Mana
 your Windows account. Fumes sends each one only to that provider's own API, over HTTPS.
 
 **Claude limits** come from Claude Code: set its status line to `python -m fumes.statusline` (see
-[`docs/providers/claude.md`](docs/providers/claude.md)) and the cell fills in during your sessions.
+[`fumes/guides/claude.md`](fumes/guides/claude.md)) and the cell fills in during your sessions.
 
 ## Configure
 

@@ -129,6 +129,25 @@ def run_command(root=None, exe=None):
     return f'"{exe}" -c "{_launch_code(root)}"'
 
 
+def statusline_command(root=None, exe=None):
+    """The Claude Code status line command: the console python.exe (the status line needs stdout, so
+    never pythonw.exe) running `fumes.statusline` from `root`. Raises ValueError for a path with quotes."""
+    import os
+
+    exe = exe or os.path.abspath(sys.executable)      # abspath: no `..` in a command users paste
+    if exe.lower().endswith("pythonw.exe"):
+        exe = exe[: -len("pythonw.exe")] + "python.exe"
+    exe = exe.replace("\\", "/")
+    if "'" in exe or '"' in exe:
+        raise ValueError(f"cannot quote {exe!r} for a command")
+    root = root or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    path = root.replace("\\", "/")
+    if "'" in path or '"' in path:
+        raise ValueError(f"cannot quote {root!r} for a command")
+    return (f'"{exe}" -c "import sys,runpy;sys.path.insert(0,\'{path}\');'
+            f'runpy.run_module(\'fumes.statusline\',run_name=\'__main__\')"')
+
+
 def _launch_code(root):
     # Forward slashes: Windows accepts them, and no backslash can then end up before a quote.
     path = root.replace("\\", "/")
