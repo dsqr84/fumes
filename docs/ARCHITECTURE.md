@@ -8,6 +8,23 @@ These are durable facts about the code: how the parts fit and what is baked in t
 
 ## Facts
 
+- **Collectors** (`fumes/collect/`): with no `url` set, each refresh runs `collect.collect()` on a `CollectThread`,
+  which returns the same payload shape as the remote feed, so parsing, cache and display are shared. One module per
+  provider (`run(ctx)`, and `spend_today(ctx)` for the anchored ones); a failing provider keeps its last figures as
+  `stale`. `collect/http.py` is the only network path for keys: HTTPS only (refused before connecting), redirects
+  never followed (urllib would resend the key header), 8 MB cap, 20 s timeout, and errors carry the host and
+  exception type or the HTTP status and error type only, never a body (a provider's message can quote the key).
+- **Keys** (`keystore.py`): Windows Credential Manager generic credentials `Fumes/<id>`, persisted per user on this
+  machine, through ctypes (no extra dependency). Off Windows, read-only `FUMES_KEY_<ID>` environment variables.
+  **The ctypes calls are not run off Windows.**
+- **Ledger** (`collect/ledger.py`, `ledger.json`): anchors (a credit the user entered for OpenAI or Anthropic, which
+  have no balance API; `day_spend` keeps today's spend from being subtracted twice, since costs come per whole day)
+  and balance samples (DeepSeek has no usage API: spend is the falls between readings, rises are top-ups).
+  Loaded as untrusted; replaced atomically.
+- **Claude limits, local** (`statusline.py`): `python -m fumes.statusline` as Claude Code's status line writes
+  `claude-limits.json` in the config folder; with no `limits_url` the App reads that file (64 KB cap; no file is
+  "no reading", a bad one dims the cell). It must never import Qt (a test checks) and never print an error.
+
 - **Feed** (optional, `url` in the config; off when unset): a JSON document with a `providers` map, fetched every
   `refresh_minutes`; the last good payload is cached in `state.json`, so a failed fetch shows the old figures dimmed.
   `tests/sample-feed.json` (synthetic) covers `mtd` and the hidden no-figure provider;

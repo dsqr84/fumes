@@ -6,9 +6,9 @@ Claude subscription's 5-hour and weekly windows you have used.
 
 ![Fumes on a dark taskbar](docs/screenshot-dark.png)
 
-> **Status: pre-release.** Fumes currently reads its figures from a JSON feed. Built-in collectors
-> (your own API keys, stored in Windows Credential Manager), a Settings window with setup steps for
-> each provider, a details window and a Windows installer are being built before the first release.
+> **Status: pre-release.** Fumes reads DeepSeek, OpenAI, fal.ai and the Anthropic API with your own
+> keys, kept in Windows Credential Manager. A Settings window, a details window and a Windows
+> installer are being built before the first release; until then keys are added from the command line.
 
 ## What it shows
 
@@ -41,6 +41,24 @@ py -m venv .venv
 Use `python -m fumes` instead of `pythonw` to see errors on the console. Starting Fumes again
 replaces the copy that is already running.
 
+## Add your keys
+
+Each provider needs its own key; [`docs/providers/`](docs/providers/) says which kind and where to
+create it. Until the Settings window lands, from the Fumes folder:
+
+```
+.venv\Scripts\python -m fumes key set openai        # asks for the key; nothing is shown or saved to a file
+.venv\Scripts\python -m fumes anchor openai 25.00   # OpenAI and Anthropic: the credit your billing page shows
+.venv\Scripts\python -m fumes key list              # which providers have a key (never the key itself)
+.venv\Scripts\python -m fumes collect               # ask every provider once and print the result
+```
+
+Keys are generic credentials named `Fumes/<provider>` in Windows Credential Manager, readable only by
+your Windows account. Fumes sends each one only to that provider's own API, over HTTPS.
+
+**Claude limits** come from Claude Code: set its status line to `python -m fumes.statusline` (see
+[`docs/providers/claude.md`](docs/providers/claude.md)) and the cell fills in during your sessions.
+
 ## Configure
 
 Settings live in `%APPDATA%\fumes\config.toml`; every key is optional (see
@@ -48,7 +66,8 @@ Settings live in `%APPDATA%\fumes\config.toml`; every key is optional (see
 `%APPDATA%\fumes\logos\<id>.svg` or `.png`. Window position, the collapsed state and the last
 good readings are kept in `state.json` in the same folder.
 
-- `url`, `limits_url`: an optional remote feed and Claude limits document (off when unset).
+- `url`, `limits_url`: an optional remote feed and Claude limits document, used instead of the
+  built-in collectors and the local status-line file when set.
 - `providers`: which providers to show, in order.
 - `anchor`: `tray` (default, left of the notification area), `left` or `right`.
 - `theme`: `auto` (follows Windows), `dark` or `light`.
