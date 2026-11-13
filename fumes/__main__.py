@@ -36,9 +36,42 @@ def _demo_providers(folder):
     ])
 
 
+COMMANDS = ("key", "anchor", "collect", "status", "doctor", "setup-prompt")
+
+
+def _report(cmd, rest, folder, cfg_path):
+    """setup-prompt, status and doctor: read-only, and never print a key."""
+    from . import diagnose
+    as_json = "--json" in rest
+    rest = [a for a in rest if a != "--json"]
+    if rest or (as_json and cmd == "setup-prompt"):
+        print(f"usage: fumes {cmd}" + ("" if cmd == "setup-prompt" else " [--json]"), file=sys.stderr)
+        return 2
+    if cmd == "setup-prompt":
+        sys.stdout.write(diagnose.setup_prompt())
+        return 0
+    store = make_store()
+    if cmd == "status":
+        from .collect import Ledger
+        cfg = cfgmod.load_config(cfg_path)
+        doc = diagnose.gather(folder, store, cfg, cfgmod.State.load(folder / "state.json"),
+                              Ledger.load(folder / "ledger.json"))
+        print(json.dumps(doc, indent=2) if as_json else diagnose.render_status(doc))
+        return 0
+    warnings = []
+    cfgmod.load_config(cfg_path, warn=warnings.append)
+    checks, snip = diagnose.run_doctor(folder, store, _now(), config_warnings=warnings, config_path=cfg_path)
+    if as_json:
+        print(json.dumps({"checks": checks, "snippet": snip}, indent=2))
+    else:
+        print(diagnose.render_doctor(checks, snip))
+    return 1 if any(c["state"] == "fix" for c in checks) else 0
+
+
 def cli(argv):
-    """key / anchor / collect subcommands. Returns an exit code, or None when argv is not one of them."""
-    if not argv or argv[0] not in ("key", "anchor", "collect"):
+    """key / anchor / collect / status / doctor / setup-prompt subcommands. Returns an exit code, or None when
+    argv is not one of them."""
+    if not argv or argv[0] not in COMMANDS:
         return None
     import getpass
 
@@ -48,14 +81,18 @@ def cli(argv):
 
     cmd, rest = argv[0], list(argv[1:])
     folder = cfgmod.config_dir()
+    cfg_path = folder / "config.toml"
     if "--config" in rest:            # the same folder the strip uses with --config, so the ledger is shared
         i = rest.index("--config")
         if i + 1 >= len(rest):
             print("fumes: --config needs a path", file=sys.stderr)
             return 2
-        folder = Path(rest[i + 1]).parent
+        cfg_path = Path(rest[i + 1])
+        folder = cfg_path.parent
         del rest[i:i + 2]
     try:
+        if cmd in ("setup-prompt", "status", "doctor"):
+            return _report(cmd, rest, folder, cfg_path)
         mine = custom.load(folder)       # the providers added in Settings (providers.json), never a feed's
         if cmd == "key":
             store = make_store()

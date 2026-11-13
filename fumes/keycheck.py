@@ -47,8 +47,12 @@ def foreign(pid, key):
     who = owner(key)
     if who is None or who == pid:
         return None
-    return (f"This looks like a {NAMES.get(who, who)} key, not a {NAMES.get(pid, pid)} one. It was not saved "
-            "or sent anywhere. Paste it on its own provider's page instead.")
+    return (f"This looks like {_a(NAMES.get(who, who))} key, not {_a(NAMES.get(pid, pid))} one. It was not "
+            "saved or sent anywhere. Paste it on its own provider's page instead.")
+
+
+def _a(name):
+    return ("an " if name[:1].lower() in "aeiou" else "a ") + name
 
 
 def kind_hint(pid, key):

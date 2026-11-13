@@ -1,0 +1,12 @@
+{
+  "name": "fumes",
+  "owner": {"name": "Fumes contributors"},
+  "metadata": {"description": "Skills for setting up and extending Fumes."},
+  "plugins": [
+    {
+      "name": "fumes",
+      "source": "./",
+      "description": "Set up Fumes and add providers it does not support. Your API keys are never shown to the assistant."
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "fumes",
+  "version": "0.1.0",
+  "description": "Set up Fumes, the Windows taskbar strip of AI balances and Claude usage limits, and add providers it does not support. Your API keys are never shown to the assistant.",
+  "author": {"name": "Fumes contributors"},
+  "homepage": "https://github.com/dsqr84/fumes",
+  "repository": "https://github.com/dsqr84/fumes",
+  "license": "GPL-3.0",
+  "skills": ["./.claude/skills/"]
+}

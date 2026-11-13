@@ -392,3 +392,16 @@ def test_remove_says_it_does_not_revoke(env):
 def test_safety_page_shows_the_guide(env):
     text = env.pages["safety"].guide.toPlainText()
     assert "Where keys leak" in text and "If a key leaks" in text
+
+
+def test_general_copies_the_setup_prompt(env, tmp_path):
+    from PyQt6.QtGui import QGuiApplication
+    from fumes import diagnose
+    g = page(env, "general")
+    QGuiApplication.clipboard().setText("before")
+    assert g.prompt_btn.text() == "Copy setup prompt" and g.prompt_msg.text() == ""
+    g.prompt_btn.click()
+    got = QGuiApplication.clipboard().text()
+    assert got == diagnose.setup_prompt() and "<FOLDER" not in got and "fumes key set" in got
+    assert g.prompt_msg.text() == "Copied."
+    assert any("never needs your keys" in t for t in texts(env))

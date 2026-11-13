@@ -52,7 +52,27 @@ keys, which can manage your whole account, not just read it. Until the Settings 
 .venv\Scripts\python -m fumes anchor openai 25.00   # OpenAI and Anthropic: the credit your billing page shows
 .venv\Scripts\python -m fumes key list              # which providers have a key (never the key itself)
 .venv\Scripts\python -m fumes collect               # ask every provider once and print the result
+.venv\Scripts\python -m fumes status               # what is set up, in a table (add --json for scripts)
+.venv\Scripts\python -m fumes doctor               # checks each step, says what to fix, never prints a key
 ```
+
+`fumes doctor` ends with the exact `statusLine` entry to add to Claude Code's settings if you use the
+Claude limits cell. Neither `status` nor `doctor` ever prints a key or any part of one.
+
+**Set up with an AI assistant.** Paste the prompt from [`docs/SETUP-WITH-AI.md`](docs/SETUP-WITH-AI.md)
+(also `fumes setup-prompt`, or **Copy setup prompt** in Settings, General) into Claude Code or another
+assistant that can run commands. It walks you through each provider, but **your keys are never given to
+the assistant**: it runs `fumes key set`, and you paste each key into that hidden prompt yourself.
+
+In **Claude Code**, the same steps come as skills: they load by themselves when you open Claude Code in
+the Fumes folder, or install them anywhere with
+
+```
+/plugin install fumes --marketplace dsqr84/fumes
+```
+
+then ask Claude to "set up Fumes" (the `fumes-setup` skill) or to add a service Fumes does not support
+(`fumes-add-provider`).
 
 Keys are generic credentials named `Fumes/<provider>` in Windows Credential Manager, readable only by
 your Windows account. Fumes sends each one only to that provider's own API, over HTTPS.

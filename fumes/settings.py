@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (QCheckBox, QComboBox, QDialog, QFileDialog, QFormLa
                              QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPushButton, QSpinBox,
                              QStackedWidget, QTextBrowser, QPlainTextEdit, QVBoxLayout, QWidget)
 
-from . import collect, fonts, keycheck, keystore, links, logos, statusline, win
+from . import collect, diagnose, fonts, keycheck, keystore, links, logos, statusline, win
 from . import __version__
 from .collect import custom as customlib
 
@@ -735,12 +735,26 @@ class GeneralPage(Page):
             self.autostart.toggled.connect(lambda on: act.setChecked(on) if act.isChecked() != on else None)
             act.toggled.connect(self._sync)
         lay.addWidget(self.autostart)
+        self.prompt_btn = QPushButton("Copy setup prompt")
+        self.prompt_btn.setObjectName("copy_setup_prompt")
+        self.prompt_msg = self.label("", "msg", wrap=False)
+        self.prompt_btn.clicked.connect(self.copy_prompt)
+        row = QHBoxLayout()
+        row.addWidget(self.prompt_btn)
+        row.addWidget(self.prompt_msg, 1)
+        lay.addLayout(row)
+        lay.addWidget(self.label("Paste it into Claude Code or another assistant that can run commands. "
+                                 "It never needs your keys.", "hint"))
         self.folder = self.label(f"Config folder: {win_.folder}", "msg")
         self.version = self.label(f"Version: {__version__}", "msg")
         for lb in (self.folder, self.version):
             lb.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             lay.addWidget(lb)
         lay.addStretch(1)
+
+    def copy_prompt(self):
+        QGuiApplication.clipboard().setText(diagnose.setup_prompt())
+        self.prompt_msg.setText("Copied.")
 
     def _sync(self, on):
         if self.autostart.isChecked() != on:
