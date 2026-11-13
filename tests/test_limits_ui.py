@@ -112,11 +112,16 @@ def test_no_remote_urls_means_no_fetch(qapp, monkeypatch, tmp_path):
         def start(self): pass
         def isRunning(self): return False
 
+    class FakeCollect(FakeThread):
+        def __init__(self, *a, **k):
+            started.append("local collection")
+
     monkeypatch.setattr(ui, "LimitsThread", FakeThread)
     monkeypatch.setattr(ui, "FetchThread", FakeThread)
+    monkeypatch.setattr(ui, "CollectThread", FakeCollect)
     app = ui.App(cfgmod.Config(), cfgmod.State(tmp_path / "s.json"))
     app.refresh_all()
-    assert started == []
+    assert "local collection" in started and all(u == "local collection" for u in started)   # no remote fetch
 
 
 def test_show_limits_false_means_no_cell_no_button_no_fetch(qapp, raw_feed_live, monkeypatch, tmp_path):

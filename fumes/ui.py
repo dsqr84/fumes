@@ -11,9 +11,11 @@ from PyQt6.QtGui import (QAction, QColor, QDesktopServices, QFont, QFontMetrics,
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon, QToolTip, QWidget
 
+from . import collect, keystore
 from . import feed as feedmod
 from . import fmt, fonts, gauge, limits as limmod, links, logos, place, win
 from .logos import LOGO_DIR, badge_color  # noqa: F401 (re-exported)
+from . import config as cfgmod
 from .config import Config, State
 
 LOGO = 14                     # two rows, like the taskbar clock: small logos and clock-sized figures
@@ -688,6 +690,27 @@ class FetchThread(QThread):
             self.done.emit(None, None, str(e))
 
 
+class CollectThread(QThread):
+    """Local collection: asks each provider's own API with the saved keys. Same signal as FetchThread."""
+    done = pyqtSignal(object, object, str)  # feed or None, raw payload or None, error text
+
+    def __init__(self, store, ledger, http, previous, enabled, parent=None):
+        super().__init__(parent)
+        self.store, self.ledger, self.http = store, ledger, http
+        self.previous, self.enabled = previous, enabled
+
+    def run(self):
+        try:
+            payload, failed = collect.collect(datetime.now(timezone.utc), self.store, self.ledger,
+                                              http=self.http, previous=self.previous, enabled=self.enabled)
+            if self.ledger.anchors or self.ledger.samples:   # nothing to remember: write nothing
+                self.ledger.save()
+            self.done.emit(feedmod.parse_feed(payload), payload,
+                           "failed: " + ", ".join(failed) if failed else "")
+        except Exception as e:  # noqa: BLE001 (never reach the UI thread)
+            self.done.emit(None, None, type(e).__name__)
+
+
 def tray_icon():
     """A $ glyph on a rounded square, drawn in code."""
     out = QIcon()
@@ -740,8 +763,13 @@ def build_menu(app):
 class App:
     """Owns the strip, tray, timers and the fetch thread."""
 
-    def __init__(self, cfg: Config, state: State, user_logo_dir=None):
+    def __init__(self, cfg: Config, state: State, user_logo_dir=None, store=None, ledger=None, http=None):
         self.cfg, self.state = cfg, state
+        self.folder = Path(user_logo_dir or cfgmod.config_dir())
+        # used only when cfg.url is empty (local collection); injectable for tests
+        self.store = store if store is not None else keystore.default_store()
+        self.ledger = ledger if ledger is not None else collect.Ledger.load(self.folder / "ledger.json")
+        self.http = http
         self.strip = Strip(cfg, user_logo_dir)
         self.strip.offset = state.offset
         self.strip.collapsed = state.collapsed
@@ -838,9 +866,13 @@ class App:
         self._update_tray_tip()
 
     def refresh(self):
-        if not self.cfg.url or (self.thread is not None and self.thread.isRunning()):
+        if self.thread is not None and self.thread.isRunning():
             return
-        self.thread = FetchThread(self.cfg.url)
+        if self.cfg.url:
+            self.thread = FetchThread(self.cfg.url)
+        else:
+            prev = self.state.cache if isinstance(self.state.cache, dict) else None
+            self.thread = CollectThread(self.store, self.ledger, self.http, prev, self.cfg.providers or None)
         self.thread.done.connect(self._fetched)
         self.thread.start()
 
@@ -849,14 +881,43 @@ class App:
         self.refresh_limits()
 
     def refresh_limits(self):
-        """Fetch the Claude limits on their own thread. Does nothing when show_limits is off."""
-        if not self.cfg.show_limits or not self.cfg.limits_url:
+        """Fetch the Claude limits on their own thread, or read the status line's local file when no
+        limits_url is set. Does nothing when show_limits is off."""
+        if not self.cfg.show_limits:
+            return
+        if not self.cfg.limits_url:
+            self._read_local_limits()
             return
         if self.limits_thread is not None and self.limits_thread.isRunning():
             return
         self.limits_thread = LimitsThread(self.cfg.limits_url)
         self.limits_thread.done.connect(self._limits_fetched)
         self.limits_thread.start()
+
+    LOCAL_LIMITS_MAX = 64 * 1024
+
+    def _read_local_limits(self):
+        """claude-limits.json, written by `python -m fumes.statusline` in this folder. A few hundred bytes,
+        so it is read on the UI thread. No file yet means no reading, not a failure."""
+        from . import statusline
+        path = self.folder / statusline.FILE
+        try:
+            with open(path, "rb") as f:
+                data = f.read(self.LOCAL_LIMITS_MAX + 1)
+        except FileNotFoundError:
+            return
+        except OSError:
+            self._limits_fetched(None, None, "unreadable")
+            return
+        try:
+            if len(data) > self.LOCAL_LIMITS_MAX:
+                raise ValueError("too large")
+            raw = json.loads(data.decode("utf-8"))
+            lim = limmod.parse_limits(raw)
+        except (ValueError, UnicodeDecodeError, feedmod.FeedError):
+            self._limits_fetched(None, None, "unreadable")
+            return
+        self._limits_fetched(lim, raw, "")
 
     def _limits_fetched(self, lim, raw, error):
         if lim is None:

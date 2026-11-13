@@ -10,7 +10,98 @@ from . import feed as feedmod
 from . import limits as limmod
 
 
+def make_store():
+    from . import keystore
+    return keystore.default_store()
+
+
+def make_http():
+    from .collect import Http
+    return Http()
+
+
+def _now():
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc)
+
+
+def cli(argv):
+    """key / anchor / collect subcommands. Returns an exit code, or None when argv is not one of them."""
+    if not argv or argv[0] not in ("key", "anchor", "collect"):
+        return None
+    import getpass
+
+    from . import collect as col
+    from . import keystore
+
+    cmd, rest = argv[0], list(argv[1:])
+    folder = cfgmod.config_dir()
+    if "--config" in rest:            # the same folder the strip uses with --config, so the ledger is shared
+        i = rest.index("--config")
+        if i + 1 >= len(rest):
+            print("fumes: --config needs a path", file=sys.stderr)
+            return 2
+        folder = Path(rest[i + 1]).parent
+        del rest[i:i + 2]
+    try:
+        if cmd == "key":
+            store = make_store()
+            if rest == ["list"]:
+                for m in col.providers():
+                    print(f"{m.ID}\t{m.NAME}\t{m.KEY_LABEL}\t{'saved' if store.get(m.ID) else 'not saved'}")
+                return 0
+            if len(rest) == 2 and rest[0] in ("set", "delete"):
+                m = col.by_id(rest[1])
+                if m is None:
+                    print(f"fumes: unknown provider {rest[1]!r}", file=sys.stderr)
+                    return 2
+                if rest[0] == "set":
+                    store.set(m.ID, getpass.getpass(f"{m.NAME} {m.KEY_LABEL} (not shown): "))
+                    print(f"saved the {m.NAME} key")
+                else:
+                    store.delete(m.ID)
+                    print(f"removed the {m.NAME} key")
+                return 0
+            print("usage: fumes key list | key set <id> | key delete <id>", file=sys.stderr)
+            return 2
+        if cmd == "anchor":
+            if len(rest) != 2:
+                print("usage: fumes anchor <id> <usd>", file=sys.stderr)
+                return 2
+            try:
+                usd = float(rest[1].lstrip("$").replace(",", ""))
+            except ValueError:
+                print(f"fumes: {rest[1]!r} is not a dollar amount", file=sys.stderr)
+                return 2
+            ledger = col.Ledger.load(folder / "ledger.json")
+            rec, warning = col.set_anchor(rest[0], usd, _now(), make_store(), ledger, http=make_http())
+            ledger.save()
+            print(f"{rest[0]}: balance recorded {col.money(rec['usd'])} (today's spend so far "
+                  f"{col.money(rec['day_spend'])})")
+            if warning:
+                print(f"warning: {warning}")
+            return 0
+        if rest:
+            print("usage: fumes collect", file=sys.stderr)
+            return 2
+        ledger = col.Ledger.load(folder / "ledger.json")
+        payload, failed = col.collect(_now(), make_store(), ledger, http=make_http())
+        ledger.save()
+        for pid, p in payload["providers"].items():
+            line = f"{pid}\t{p['status']}\tbalance {col.money(p.get('balance'))}\tmtd {col.money(p.get('mtd'))}"
+            if p.get("error"):
+                line += f"\t{p['error']}"
+            print(line)
+        return 1 if failed else 0
+    except (keystore.KeyStoreError, ValueError, OSError) as e:
+        print(f"fumes: {e}", file=sys.stderr)
+        return 1
+
+
 def main(argv=None):
+    code = cli(list(sys.argv[1:] if argv is None else argv))
+    if code is not None:
+        return code
     ap = argparse.ArgumentParser(prog="fumes")
     ap.add_argument("--config", help="path to config.toml (default: the config folder)")
     ap.add_argument("--url", help="feed URL (overrides the config)")
