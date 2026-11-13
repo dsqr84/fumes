@@ -687,8 +687,10 @@ def test_hover_plate_geometry_and_move_mode(qapp, raw_feed_live, raw_limits):
     plate = bg + (0xf2 - bg) * 0.08
     cy = s.row_centre(c.row)                                                 # bottom row: 29
     # x-5 .. x+w+5, cy-8.5 .. cy+8.5 (17 tall)
-    assert px(img, c.x - 3, cy - 7)[0] == pytest.approx(plate, abs=3)
-    assert px(img, c.x + c.w + 3, cy + 7)[0] == pytest.approx(plate, abs=3)
+    # sampled at mid-height in the padding beside the cell: well inside the plate, away from its rounded
+    # corners (whose antialiased edge moves with font metrics) and from the logo and text
+    assert px(img, c.x - 3, cy)[0] == pytest.approx(plate, abs=3)
+    assert px(img, c.x + c.w + 3, cy)[0] == pytest.approx(plate, abs=3)
     assert px(img, c.x - 7, cy)[0] == bg and px(img, c.x - 3, cy - 10)[0] == bg and px(img, c.x - 3, cy + 9)[0] == bg
     assert px(img, c.x + c.w + 7, cy)[0] == bg
     # the next column is untouched

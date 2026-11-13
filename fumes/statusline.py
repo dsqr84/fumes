@@ -138,6 +138,12 @@ def main(stdin=None, out=None, now=None):
 
 def run():
     try:
+        # Claude Code reads UTF-8. A Windows console pipe defaults to a legacy code page that has no "→" or
+        # "·", and the print would fail into the except below, leaving the status row blank.
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
         print(main())
     except Exception:   # the status row must never show a traceback
         pass

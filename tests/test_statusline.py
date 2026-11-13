@@ -140,3 +140,16 @@ class ScriptTest(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EncodingTest(unittest.TestCase):
+    def test_the_status_row_survives_a_legacy_code_page(self):
+        """On Windows a pipe defaults to cp1252, which cannot encode the arrow: the row must still print."""
+        with tempfile.TemporaryDirectory() as d:
+            future = session(five={"used_percentage": 7, "resets_at": 4_000_000_000},
+                             week={"used_percentage": 9, "resets_at": 4_000_000_000})
+            env = dict(os.environ, FUMES_LIMITS_OUT=os.path.join(d, "l.json"), PYTHONPATH=ROOT,
+                       PYTHONIOENCODING="cp1252")
+            got = subprocess.run([sys.executable, "-m", "fumes.statusline"], input=json.dumps(future).encode(),
+                                 env=env, capture_output=True, timeout=30)
+            self.assertIn("5h 7% →".encode("utf-8"), got.stdout)

@@ -178,9 +178,13 @@ def test_cursor_pointing_hand_over_cell_arrow_elsewhere(qapp, raw_feed):
     s = strip_with_feed(raw_feed)
     s.show()
     c = s.cells()[0]
-    QTest.mouseMove(s, QPoint(int(c.x + 3), 10))
+
+    def move(x, y=10):   # delivered directly: QTest.mouseMove sends nothing on some platforms (Windows offscreen)
+        s.mouseMoveEvent(QMouseEvent(QEvent.Type.MouseMove, QPointF(x, y), QPointF(s.mapToGlobal(QPoint(int(x), y))),
+                                     Qt.MouseButton.NoButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier))
+    move(c.x + 3)
     assert s.cursor().shape() == Qt.CursorShape.PointingHandCursor
-    QTest.mouseMove(s, QPoint(0, 10))
+    move(0)
     assert s.cursor().shape() == Qt.CursorShape.ArrowCursor
     s.hide()
 

@@ -10,6 +10,7 @@ from fumes import win
 NOW = datetime(2026, 11, 12, 12, 0, 0, tzinfo=timezone.utc)
 
 
+@pytest.mark.skipif(win.ON_WINDOWS, reason="the no-op fallbacks are for other platforms")
 def test_win_noop_on_linux():
     assert win.ON_WINDOWS is False
     assert win.taskbar_rects() is None
@@ -163,7 +164,8 @@ def test_open_url_false_when_chrome_missing_or_launch_fails():
     def boom(a):
         raise OSError("no")
     assert win.open_url("https://x", "chrome", chrome_lookup=lambda: "c.exe", popen=boom) is False
-    assert win.open_url("https://x") is False      # real lookup off Windows: not found
+    if not win.ON_WINDOWS:     # on Windows the real lookup may find Chrome, and would open it
+        assert win.open_url("https://x") is False      # real lookup off Windows: not found
 
 
 def test_browser_default_skips_the_chrome_lookup():
