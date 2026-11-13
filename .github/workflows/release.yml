@@ -1,0 +1,85 @@
+# Build the Windows release: run the tests on Windows, build Fumes/ with PyInstaller, zip it, checksum it,
+# attest it (public repos), and on a v* tag create a DRAFT release for a maintainer to check and publish.
+# Every action is pinned to a commit and every Python package to a hash.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    permissions:
+      contents: write        # create the draft release (tag builds only)
+      id-token: write        # build provenance attestation
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0   # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned, hashed dependencies
+        run: python -m pip install --require-hashes --no-deps -r requirements-release.txt
+
+      - name: Tests (on Windows)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q -p no:cacheprovider
+
+      - name: Build
+        run: python -m PyInstaller --noconfirm --clean packaging/fumes.spec
+
+      - name: Smoke-test the build
+        shell: pwsh
+        run: |
+          $cli = "dist\Fumes\fumes-cli.exe"
+          & $cli setup-prompt | Select-Object -First 1
+          & $cli doctor; if ($LASTEXITCODE -gt 1) { exit 1 }
+          '{"context_window": {"used_percentage": 5}}' | & $cli statusline
+          if (-not (Test-Path "dist\Fumes\Fumes.exe")) { exit 1 }
+          exit 0
+
+      - name: Zip and checksum
+        id: zip
+        shell: pwsh
+        run: |
+          $ver = if ($env:GITHUB_REF_TYPE -eq "tag") { $env:GITHUB_REF_NAME } else { "dev-$($env:GITHUB_SHA.Substring(0,7))" }
+          if ($ver -notmatch '^[A-Za-z0-9._-]+$') { Write-Error "unexpected version name"; exit 1 }
+          $zip = "Fumes-$ver-windows-x64.zip"
+          Compress-Archive -Path dist\Fumes -DestinationPath $zip
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  $zip" | Out-File -Encoding ascii "$zip.sha256"
+          "zip=$zip" >> $env:GITHUB_OUTPUT
+
+      - name: Attest build provenance
+        if: ${{ !github.event.repository.private }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8   # v4.2.2
+        with:
+          subject-path: ${{ steps.zip.outputs.zip }}
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9   # v7.0.2
+        with:
+          name: fumes-windows
+          path: |
+            ${{ steps.zip.outputs.zip }}
+            ${{ steps.zip.outputs.zip }}.sha256
+
+      - name: Draft release (tags only)
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ZIP: ${{ steps.zip.outputs.zip }}      # via the environment, never pasted into the script text
+        shell: pwsh
+        run: |
+          gh release create "$env:GITHUB_REF_NAME" --draft --title "Fumes $env:GITHUB_REF_NAME" `
+            --notes "Unzip anywhere and run Fumes.exe. Check the download: compare its SHA-256 with the .sha256 file." `
+            "$env:ZIP" "$env:ZIP.sha256"

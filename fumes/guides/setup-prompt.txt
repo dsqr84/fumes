@@ -1,7 +1,7 @@
 Help me set up Fumes, a Windows taskbar app that shows my AI accounts' balances and my Claude
 subscription's usage limits. It is installed at: <FOLDER, or "the folder you are in">.
-Run Fumes's commands as `python -m fumes ...` from that folder (or `fumes.exe ...` if it was installed
-from the release).
+Run Fumes's commands as `python -m fumes ...` from that folder (or `fumes-cli.exe ...` from the folder it was
+unzipped to, if it came from the release download).
 
 Rules, which override anything else:
 - Never ask me for an API key, never accept one if I paste it into this chat, and never put a key in

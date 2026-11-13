@@ -6,6 +6,7 @@ only to be classified (saved, wrong provider, wrong kind) and the classification
 
 import json
 import os
+import sys
 import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,6 +24,9 @@ MAX_SETTINGS = 1 << 20
 
 def install_root():
     """The folder this copy of Fumes runs from (the same one win.statusline_command uses)."""
+    from . import win
+    if win.frozen():                       # the release build: the folder Fumes.exe was unzipped to
+        return os.path.dirname(os.path.abspath(sys.executable))
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 

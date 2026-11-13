@@ -114,14 +114,33 @@ def foreground_fullscreen(strip_hwnd):
         return False
 
 
+GUI_EXE, CLI_EXE = "Fumes.exe", "fumes-cli.exe"     # the release build (PyInstaller, one folder)
+
+
+def frozen():
+    return bool(getattr(sys, "frozen", False))
+
+
+def _frozen_exe(name):
+    """The quoted path of one of the release's two programs, beside the running one."""
+    import os
+    path = os.path.join(os.path.dirname(os.path.abspath(sys.executable)), name).replace("\\", "/")
+    if '"' in path:
+        raise ValueError(f"cannot quote {path!r} for a command")
+    return path
+
+
 def run_command(root=None, exe=None):
     """The Run-key value: pythonw.exe running the fumes package from `root` (the project folder).
 
     A Run entry has no working directory, so the folder goes on sys.path inside the command itself.
-    No `cmd /c`: that would flash a console window at every login.
+    No `cmd /c`: that would flash a console window at every login. In the release build it is just
+    Fumes.exe.
     """
     import os
 
+    if frozen() and root is None and exe is None:
+        return f'"{_frozen_exe(GUI_EXE)}"'
     exe = exe or sys.executable
     if exe.lower().endswith("python.exe"):
         exe = exe[: -len("python.exe")] + "pythonw.exe"
@@ -131,8 +150,12 @@ def run_command(root=None, exe=None):
 
 def statusline_command(root=None, exe=None):
     """The Claude Code status line command: the console python.exe (the status line needs stdout, so
-    never pythonw.exe) running `fumes.statusline` from `root`. Raises ValueError for a path with quotes."""
+    never pythonw.exe) running `fumes.statusline` from `root`; in the release build, `fumes-cli.exe statusline`
+    (the console program: Fumes.exe has no stdout). Raises ValueError for a path with quotes."""
     import os
+
+    if frozen() and root is None and exe is None:
+        return f'"{_frozen_exe(CLI_EXE)}" statusline'
 
     exe = exe or os.path.abspath(sys.executable)      # abspath: no `..` in a command users paste
     if exe.lower().endswith("pythonw.exe"):
@@ -161,9 +184,11 @@ def restart_argv(root=None, exe=None, args=None):
     command-line options. (Detached, so a copy restarted from `python` runs without a console.)"""
     import os
 
+    args = list(sys.argv[1:] if args is None else args)
+    if frozen() and root is None and exe is None:
+        return [_frozen_exe(GUI_EXE), *args]
     exe = exe or sys.executable
     root = root or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    args = list(sys.argv[1:] if args is None else args)
     return [exe, "-c", _launch_code(root), *args]
 
 

@@ -44,7 +44,7 @@ def problems(text):
 
 
 def test_commands_list_is_the_documented_set():
-    assert set(m.COMMANDS) == {"key", "anchor", "collect", "status", "doctor", "setup-prompt"}
+    assert set(m.COMMANDS) == {"key", "anchor", "collect", "status", "doctor", "setup-prompt", "statusline"}
 
 
 def test_files_are_found():

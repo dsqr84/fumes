@@ -220,3 +220,26 @@ def test_restart_quits_only_when_the_new_copy_started(monkeypatch):
     monkeypatch.setattr(win, "relaunch", lambda: True)
     ui.App.restart(None)
     assert quits == [1]
+
+
+def test_release_build_commands_point_at_the_two_programs(monkeypatch, tmp_path):
+    """Frozen (PyInstaller): autostart and Restart start Fumes.exe; the status line is fumes-cli.exe statusline."""
+    exe = tmp_path / "Fumes app" / "Fumes.exe"
+    monkeypatch.setattr(win.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(win.sys, "executable", str(exe))
+    folder = str(exe.parent).replace("\\", "/")
+    assert win.run_command() == f'"{folder}/Fumes.exe"'
+    assert win.statusline_command() == f'"{folder}/fumes-cli.exe" statusline'
+    assert win.restart_argv(args=["--config", "c.toml"]) == [f"{folder}/Fumes.exe", "--config", "c.toml"]
+    from fumes import diagnose
+    assert diagnose.install_root() == str(exe.parent)
+
+
+def test_statusline_subcommand_runs_the_status_line(monkeypatch, capsys, tmp_path):
+    import io
+    import json
+    from fumes import __main__ as m
+    monkeypatch.setenv("FUMES_LIMITS_OUT", str(tmp_path / "cl.json"))
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps({"context_window": {"used_percentage": 12}})))
+    assert m.main(["statusline"]) == 0
+    assert capsys.readouterr().out.strip() == "ctx 12%"

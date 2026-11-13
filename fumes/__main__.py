@@ -36,7 +36,7 @@ def _demo_providers(folder):
     ])
 
 
-COMMANDS = ("key", "anchor", "collect", "status", "doctor", "setup-prompt")
+COMMANDS = ("key", "anchor", "collect", "status", "doctor", "setup-prompt", "statusline")
 
 
 def _report(cmd, rest, folder, cfg_path):
@@ -73,6 +73,10 @@ def cli(argv):
     argv is not one of them."""
     if not argv or argv[0] not in COMMANDS:
         return None
+    if argv[0] == "statusline":             # Claude Code's status line (fumes-cli.exe statusline): no Qt, fast
+        from . import statusline
+        statusline.run()
+        return 0
     import getpass
 
     from . import collect as col

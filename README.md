@@ -28,7 +28,22 @@ Claude subscription's 5-hour and weekly windows you have used.
 - **Out of the way.** The chevron folds the strip down to just the Claude cell. Right-click for Move
   (drag it along the taskbar), Collapsed, Refresh now, Start with Windows, Restart and Quit.
 
-## Install and run (Windows 11, Python 3.11+)
+## Download (Windows 11)
+
+Get `Fumes-<version>-windows-x64.zip` from the [Releases](https://github.com/dsqr84/fumes/releases)
+page, unzip it anywhere you like (for example `%LOCALAPPDATA%\Programs\Fumes`) and run `Fumes.exe`.
+The folder also holds `fumes-cli.exe`, the command-line version, used for `fumes-cli key set ...`,
+`fumes-cli doctor` and Claude Code's status line.
+
+**Check what you downloaded.** Each release has a `.sha256` file:
+`Get-FileHash Fumes-<version>-windows-x64.zip` in PowerShell must print the same value. Releases are
+built on GitHub's own runners from the tagged source by
+[`.github/workflows/release.yml`](.github/workflows/release.yml), with a build provenance
+attestation you can check with `gh attestation verify <zip> --repo dsqr84/fumes`. The programs are
+not code-signed, so Windows SmartScreen may warn the first time: choose **More info**, then **Run
+anyway**, only for a file whose checksum you have checked.
+
+## Install and run from source (Windows 11, Python 3.11+)
 
 ```
 git clone https://github.com/<owner>/fumes.git
