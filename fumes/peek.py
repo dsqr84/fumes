@@ -254,8 +254,7 @@ class Peek(QWidget):
         url = cfg.links.get(p.id)
         if url:
             out.append(("Console", url))
-        if cfg.details_url:
-            out.append(("Details", cfg.details_url))
+        out.append(("Details", cfg.details_url or linkmod.DETAILS_MARKER))
         return out
 
     def values(self):
@@ -589,7 +588,11 @@ class Peek(QWidget):
         if i is not None and i == self._pressed_link:
             url = self._L["links"][i][2]
             self.close()
-            linkmod.open_link(self.strip.cfg, url)
+            if url == linkmod.DETAILS_MARKER:
+                if self.strip.on_details is not None:
+                    self.strip.on_details()
+            else:
+                linkmod.open_link(self.strip.cfg, url)
         self._pressed_link = None
 
     def keyPressEvent(self, ev):

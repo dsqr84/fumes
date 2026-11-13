@@ -190,10 +190,10 @@ def test_menus_share_one_builder(qapp, raw_feed):
 
     class Fake:
         strip = s
-        reset_position = refresh = refresh_all = open_details = open_settings = _set_autostart = restart = staticmethod(lambda *a: None)
+        reset_position = refresh = refresh_all = open_details_window = open_settings = _set_autostart = restart = staticmethod(lambda *a: None)
     menu = ui.build_menu(Fake)
     texts = [a.text() for a in menu.actions() if not a.isSeparator()]
-    assert texts == ["Move", "Reset position", "Collapsed", "Settings…", "Refresh now", "Open details page", "Start with Windows", "Restart", "Quit"]
+    assert texts == ["Move", "Reset position", "Collapsed", "Settings…", "Refresh now", "Details…", "Start with Windows", "Restart", "Quit"]
     assert [a.isSeparator() for a in menu.actions()] == [False, False, False, True, False, False, False, False, True, False, False]
 
 

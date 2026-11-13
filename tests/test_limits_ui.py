@@ -451,7 +451,7 @@ def test_menu_item_mirrors_collapsed_state(qapp, raw_feed, raw_limits):
 
     class Fake:
         strip = s
-        reset_position = refresh = refresh_all = open_details = open_settings = _set_autostart = restart = staticmethod(lambda *a: None)
+        reset_position = refresh = refresh_all = open_details_window = open_settings = _set_autostart = restart = staticmethod(lambda *a: None)
     menu = ui.build_menu(Fake)  # noqa: F841 (the actions die with the menu)
     act = Fake.collapse_action
     assert act.isCheckable() and act.text() == "Collapsed" and not act.isChecked() and act.isEnabled()
@@ -468,7 +468,7 @@ def test_menu_item_disabled_without_the_limits_cell(qapp, raw_feed):
 
     class Fake:
         strip = s
-        reset_position = refresh = refresh_all = open_details = open_settings = _set_autostart = restart = staticmethod(lambda *a: None)
+        reset_position = refresh = refresh_all = open_details_window = open_settings = _set_autostart = restart = staticmethod(lambda *a: None)
     menu = ui.build_menu(Fake)  # noqa: F841 (the actions die with the menu)
     assert not Fake.collapse_action.isEnabled()
 

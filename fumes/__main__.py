@@ -118,6 +118,9 @@ def main(argv=None):
                     "provider id or `button`")
     ap.add_argument("--settings", metavar="PAGE", help="with --once-png: render the Settings window on that page "
                     "(a provider id, `claude` or `general`) instead of the strip")
+    ap.add_argument("--details", action="store_true", help="with --once-png: render the Details window (the "
+                    "whole page) instead of the strip")
+    ap.add_argument("--details-table", action="store_true", help="like --details with the table shown")
     ap.add_argument("--stale", action="store_true", help="with --once-png: draw as a failed fetch")
     args = ap.parse_args(argv)
 
@@ -179,6 +182,11 @@ def main(argv=None):
         if args.hover:
             strip._hover = (ui.BUTTON if args.hover == "button"
                             else ui.LIMITS_KEY if args.hover == "claude" else ("provider", args.hover))
+        if args.details or args.details_table:
+            from .details import DetailsWindow
+            w = DetailsWindow(strip.theme, now_fn=strip.now_fn, tz=strip.tz, feed=strip.feed,
+                              table=args.details_table)
+            return 0 if w.render_png(args.once_png, args.dpr) else 1
         if args.peek:
             from .peek import Peek
             peek = Peek(strip)

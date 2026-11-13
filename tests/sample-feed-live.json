@@ -79,7 +79,7 @@
    "status": "ok",
    "checked": "2026-11-12T11:30:56Z",
    "balance": 4.15,
-   "note": "Spend is summed from the API's usage records; the balance is DeepSeek's own.",
+   "note": "DeepSeek reports no usage history: spend is estimated from the falls in the balance between checks (since 2026-10-14). Top-ups are not counted.",
    "name": "DeepSeek"
   },
   "openai": {
@@ -181,7 +181,7 @@
    "daily": {},
    "breakdown": [],
    "balance": 85.2,
-   "note": "Anthropic refused the cost report: HTTP 403 (permission_error). Anthropic's Admin API is unavailable for individual accounts: set the organisation up at platform.claude.com/settings/organization, then this key should work.",
+   "note": "Anthropic refused the cost report: HTTP 403 (permission_error). The Admin API is not available to individual accounts: convert yours to a team in the Claude Console (Settings, Organization), then create a key on the Admin keys page.",
    "status": "not_connected",
    "checked": "2026-11-12T11:30:56Z",
    "name": "Anthropic API"

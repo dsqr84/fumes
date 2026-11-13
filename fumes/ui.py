@@ -139,6 +139,7 @@ class Strip(QWidget):
         self._rpress = False
         self._peek = None
         self.context_menu = None
+        self.on_details = None      # set by the App: opens the Details window
         self.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint
                             | Qt.WindowType.WindowStaysOnTopHint
                             | Qt.WindowType.WindowDoesNotAcceptFocus)
@@ -748,7 +749,7 @@ def build_menu(app):
     menu.addSeparator()
     menu.addAction("Settings…", app.open_settings)
     menu.addAction("Refresh now", app.refresh_all)
-    menu.addAction("Open details page", app.open_details)
+    menu.addAction("Details…", app.open_details_window)
     app.autostart = QAction("Start with Windows", menu)
     app.autostart.setCheckable(True)
     app.autostart.setEnabled(win.ON_WINDOWS)
@@ -780,6 +781,8 @@ class App:
         self.fullscreen_hidden = False
         self.thread = None
         self.limits_thread = None
+        self.details_window = None
+        self.strip.on_details = self.open_details_window
 
         if state.cache:
             try:
@@ -838,8 +841,18 @@ class App:
         w.activateWindow()
         return w
 
-    def open_details(self):
-        links.open_link(self.cfg, self.cfg.details_url)
+    def open_details_window(self):
+        """The one shared Details window: created on first use, raised when already open."""
+        from .details import DetailsWindow
+        if self.details_window is None:
+            self.details_window = DetailsWindow(self.strip.theme, now_fn=lambda: self.strip.now_fn(),
+                                                tz=self.strip.tz, feed=self.strip.feed)
+        w = self.details_window
+        w.set_feed(self.strip.feed)
+        w.show()
+        w.raise_()
+        w.activateWindow()
+        return w
 
     def _set_autostart(self, on):
         win.set_autostart(on)
@@ -951,6 +964,8 @@ class App:
             self.strip.set_failed(True)
         else:
             self.strip.set_feed(feed, failed=False)
+            if self.details_window is not None:
+                self.details_window.set_feed(feed)
             self.state.cache = raw
             try:
                 self.state.save()
