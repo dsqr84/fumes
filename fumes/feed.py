@@ -6,7 +6,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-KNOWN_ORDER = ["deepseek", "openai", "fal", "anthropic", "acme"]
+KNOWN_ORDER = ["deepseek", "openai", "fal", "anthropic"]
 STATUSES = ("ok", "stale", "not_connected", "error")
 
 

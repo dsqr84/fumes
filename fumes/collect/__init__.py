@@ -40,8 +40,8 @@ def providers():
     return [deepseek, openai, fal, anthropic]
 
 
-def by_id(pid):
-    return next((m for m in providers() if m.ID == pid), None)
+def by_id(pid, custom=()):
+    return next((m for m in list(providers()) + list(custom) if m.ID == pid), None)
 
 
 # ---------------------------------------------------------------- helpers --
@@ -122,20 +122,20 @@ def anchored_note(a, source):
 
 
 # ---------------------------------------------------------------- collect --
-def collect(now, store, ledger, http=None, previous=None, enabled=None):
+def collect(now, store, ledger, http=None, previous=None, enabled=None, custom=()):
     """(payload, ids of the providers that failed this run). `enabled`: the ids to ask (default all).
     One provider failing never touches the others: it keeps its previous figures, marked stale."""
     http = http or Http()
     stamp = now.astimezone(timezone.utc).strftime(STAMP)
     out, failed = {}, []
-    for mod in providers():
+    for mod in list(providers()) + list(custom):     # custom: the user's own (collect/custom.py)
         if enabled is not None and mod.ID not in enabled:
             continue
         ctx = Context(now=now, key=store.get(mod.ID), http=http, ledger=ledger, pid=mod.ID)
         try:
-            if not ctx.key:
+            if not ctx.key and getattr(mod, "KEY_LABEL", "x"):
                 raise NotConnected("No key saved. Add one in Settings.")
-            bad = keycheck.foreign(mod.ID, ctx.key)
+            bad = keycheck.foreign(mod.ID, ctx.key) if ctx.key else None
             if bad:                  # never send another provider's key to this one
                 raise NotConnected(bad)
             got = mod.run(ctx)
@@ -172,10 +172,10 @@ def collect(now, store, ledger, http=None, previous=None, enabled=None):
     return payload, failed
 
 
-def set_anchor(pid, usd, now, store, ledger, http=None):
+def set_anchor(pid, usd, now, store, ledger, http=None, custom=()):
     """Record the credit balance the user sees on the provider's billing page right now. Today's spend so
     far is read from the provider when it can be, so it is not subtracted twice. Returns (anchor, warning)."""
-    mod = by_id(pid)
+    mod = by_id(pid, custom)
     if mod is None or not getattr(mod, "ANCHORED", False):
         raise ValueError(f"{pid} reports its own balance")
     day_spend, warning = 0.0, ""

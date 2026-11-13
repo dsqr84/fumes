@@ -28,7 +28,7 @@ def make_strip(qapp, **kw):
 
 def test_placeholder_before_first_fetch(qapp):
     s = make_strip(qapp)
-    assert s.cell_texts() == ["…"] * 5
+    assert s.cell_texts() == ["…"] * len(feedmod.KNOWN_ORDER)          # one placeholder per built-in provider
     assert s.age_label() == ""
 
 

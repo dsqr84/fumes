@@ -25,6 +25,17 @@ def _now():
     return datetime.now(timezone.utc)
 
 
+def _demo_providers(folder):
+    """With --settings custom-manual|custom-command|add-provider: a throwaway folder holding two example
+    providers, so the pages can be rendered without touching the real config."""
+    from .collect import custom
+    custom.save(folder, [
+        {"id": "prepaid", "name": "Prepaid card", "kind": "manual", "burn_per_day": 1.5},
+        {"id": "acme", "name": "Acme", "kind": "command", "timeout": 20, "key": True,
+         "argv": ["python", "C:\\Tools\\acme-balance.py", "--json"]},
+    ])
+
+
 def cli(argv):
     """key / anchor / collect subcommands. Returns an exit code, or None when argv is not one of them."""
     if not argv or argv[0] not in ("key", "anchor", "collect"):
@@ -33,6 +44,7 @@ def cli(argv):
 
     from . import collect as col
     from . import keystore
+    from .collect import custom
 
     cmd, rest = argv[0], list(argv[1:])
     folder = cfgmod.config_dir()
@@ -44,16 +56,20 @@ def cli(argv):
         folder = Path(rest[i + 1]).parent
         del rest[i:i + 2]
     try:
+        mine = custom.load(folder)       # the providers added in Settings (providers.json), never a feed's
         if cmd == "key":
             store = make_store()
             if rest == ["list"]:
-                for m in col.providers():
+                for m in list(col.providers()) + [c for c in mine if c.KEY_LABEL]:
                     print(f"{m.ID}\t{m.NAME}\t{m.KEY_LABEL}\t{'saved' if store.get(m.ID) else 'not saved'}")
                 return 0
             if len(rest) == 2 and rest[0] in ("set", "delete"):
-                m = col.by_id(rest[1])
+                m = col.by_id(rest[1], mine)
                 if m is None:
                     print(f"fumes: unknown provider {rest[1]!r}", file=sys.stderr)
+                    return 2
+                if rest[0] == "set" and not m.KEY_LABEL:
+                    print(f"fumes: {m.NAME} does not use a key", file=sys.stderr)
                     return 2
                 if rest[0] == "set":
                     from . import keycheck
@@ -87,7 +103,8 @@ def cli(argv):
                 print(f"fumes: {rest[1]!r} is not a dollar amount", file=sys.stderr)
                 return 2
             ledger = col.Ledger.load(folder / "ledger.json")
-            rec, warning = col.set_anchor(rest[0], usd, _now(), make_store(), ledger, http=make_http())
+            rec, warning = col.set_anchor(rest[0], usd, _now(), make_store(), ledger, http=make_http(),
+                                          custom=mine)
             ledger.save()
             print(f"{rest[0]}: balance recorded {col.money(rec['usd'])} (today's spend so far "
                   f"{col.money(rec['day_spend'])})")
@@ -98,7 +115,7 @@ def cli(argv):
             print("usage: fumes collect", file=sys.stderr)
             return 2
         ledger = col.Ledger.load(folder / "ledger.json")
-        payload, failed = col.collect(_now(), make_store(), ledger, http=make_http())
+        payload, failed = col.collect(_now(), make_store(), ledger, http=make_http(), custom=mine)
         ledger.save()
         for pid, p in payload["providers"].items():
             line = f"{pid}\t{p['status']}\tbalance {col.money(p.get('balance'))}\tmtd {col.money(p.get('mtd'))}"
@@ -156,12 +173,16 @@ def main(argv=None):
         from . import collect, keystore
         from .settings import SettingsWindow
         with tempfile.TemporaryDirectory() as tmp:
+            if args.settings in ("custom-manual", "custom-command", "add-provider"):
+                _demo_providers(Path(tmp))
             w = SettingsWindow(keystore.MemoryStore(), collect.Ledger(Path(tmp) / "ledger.json"), folder=Path(tmp),
                                cfg=cfg, theme=args.theme or "dark", dpr=args.dpr)
-            if args.settings not in w.ids:
+            if args.settings not in w.ids and args.settings not in ("custom-manual", "custom-command", "add-provider"):
                 print(f"fumes: no settings page {args.settings!r}", file=sys.stderr)
                 return 1
-            w.show_page(args.settings)
+            if args.settings == "add-provider":
+                return 0 if w.render_add_dialog(args.once_png, args.dpr) else 1
+            w.show_page({"custom-manual": "prepaid", "custom-command": "acme"}.get(args.settings, args.settings))
             return 0 if w.render_png(args.once_png, args.dpr) else 1
 
     if args.once_png:

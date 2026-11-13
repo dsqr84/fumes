@@ -33,7 +33,7 @@ def test_unknown_ids_after_known_in_feed_order(raw_feed):
     raw["providers"] = {"zzz": {"name": "Z"}, "acme": raw["providers"]["acme"],
                         "aaa": {"name": "A", "balance": 1}, "deepseek": raw["providers"]["deepseek"]}
     f = feed.parse_feed(raw)
-    assert [p.id for p in f.providers] == ["deepseek", "acme", "zzz", "aaa"]
+    assert [p.id for p in f.providers] == ["deepseek", "zzz", "acme", "aaa"]     # built-ins first, then feed order
 
 
 def test_extra_keys_and_bad_field_types_tolerated(raw_feed):

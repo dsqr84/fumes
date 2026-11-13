@@ -150,7 +150,7 @@ def test_show_limits_false_means_no_cell_no_button_no_fetch(qapp, raw_feed_live,
     started.clear()
     app.refresh_limits()
     assert started == [] and not app.limits_timer.isActive()
-    assert [c.kind for c in app.strip.cells()] == ["provider"] * 5
+    assert [c.kind for c in app.strip.cells()] == ["provider"] * len(feedmod.KNOWN_ORDER)   # placeholders: the built-ins
     app.strip.hide()
 
 

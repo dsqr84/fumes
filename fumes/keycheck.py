@@ -8,7 +8,7 @@ an unknown one is let through, never guessed at.
 
 import re
 
-NAMES = {"anthropic": "Anthropic", "openai": "OpenAI", "deepseek": "DeepSeek", "fal": "fal.ai"}
+NAMES = {"anthropic": "Anthropic", "openai": "OpenAI", "deepseek": "DeepSeek", "fal": "fal.ai"}   # built-ins only
 
 # (pattern, provider id). Checked in order; the first match names the owner.
 _OWNERS = [
@@ -42,6 +42,8 @@ def owner(key):
 def foreign(pid, key):
     """A refusal message when `key` is clearly another provider's than `pid`, else None. The message
     never contains the key."""
+    if pid not in NAMES:
+        return None      # a user's own provider: the key goes to their local program, not to a company
     who = owner(key)
     if who is None or who == pid:
         return None

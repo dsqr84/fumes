@@ -57,6 +57,12 @@ keys, which can manage your whole account, not just read it. Until the Settings 
 Keys are generic credentials named `Fumes/<provider>` in Windows Credential Manager, readable only by
 your Windows account. Fumes sends each one only to that provider's own API, over HTTPS.
 
+**Any other service** can be added in Settings with **Add provider**: a *manual* one (you enter the
+balance, optionally with a daily burn) or a *command* one (a small program of yours that prints a
+balance as JSON; [`fumes/guides/command.md`](fumes/guides/command.md) has the contract and a prompt
+for having an AI write it). To build one into Fumes for everyone, see
+[`docs/ADDING-A-PROVIDER.md`](docs/ADDING-A-PROVIDER.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 **Claude limits** come from Claude Code: set its status line to `python -m fumes.statusline` (see
 [`fumes/guides/claude.md`](fumes/guides/claude.md)) and the cell fills in during your sessions.
 

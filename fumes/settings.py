@@ -9,6 +9,8 @@ Rules this module keeps:
 """
 
 import json
+import re
+import shlex
 import tempfile
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -16,12 +18,13 @@ from pathlib import Path
 
 from PyQt6.QtCore import QSize, Qt, QThread, QUrl, pyqtSignal
 from PyQt6.QtGui import QColor, QDoubleValidator, QFont, QGuiApplication, QIcon, QPalette, QValidator
-from PyQt6.QtWidgets import (QCheckBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
-                             QMessageBox, QPushButton, QStackedWidget, QTextBrowser, QPlainTextEdit,
-                             QVBoxLayout, QWidget)
+from PyQt6.QtWidgets import (QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QHBoxLayout, QLabel,
+                             QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPushButton, QSpinBox,
+                             QStackedWidget, QTextBrowser, QPlainTextEdit, QVBoxLayout, QWidget)
 
 from . import collect, fonts, keycheck, keystore, links, logos, statusline, win
 from . import __version__
+from .collect import custom as customlib
 
 GUIDES = Path(__file__).parent / "guides"
 MAX_USD = 1e7
@@ -139,7 +142,7 @@ def load_guide(pid):
 
 def run_test(mod, key, now, http, ledger):
     """One run of a provider with `key`; returns the text to show. Runs on a worker thread."""
-    bad = keycheck.foreign(mod.ID, key)
+    bad = keycheck.foreign(mod.ID, key) if key else None
     if bad:                      # the page checks too; this is the last gate before anything is sent
         return f"Not sent: {bad}"
     try:
@@ -159,6 +162,189 @@ def run_test(mod, key, now, http, ledger):
         return f"Failed: {type(e).__name__}"
 
 
+def quote_arg(a):
+    """One argument for display: in double quotes, a backslash stays a backslash (a path reads as typed)."""
+    return '"' + a.replace('"', '\\"') + '"'
+
+
+def describe_command(argv, timeout):
+    """Read-only text for a command provider: the program, then each argument on its own line."""
+    lines = [f"Program: {argv[0]}"]
+    if len(argv) > 1:
+        lines.append("Arguments:")
+        lines += [f"    {quote_arg(a)}" for a in argv[1:]]
+    else:
+        lines.append("Arguments: none")
+    lines.append(f"Timeout: {timeout} s")
+    return "\n".join(lines)
+
+
+def split_args(text):
+    """The Arguments field -> a list, the way Windows splits a command line: shlex with posix=False (a
+    backslash is just a backslash), then one pair of surrounding quotes taken off each piece. Raises
+    ValueError('...') for an unbalanced quote."""
+    out = []
+    for tok in shlex.split(text or "", posix=False):
+        if len(tok) >= 2 and tok[0] == tok[-1] and tok[0] in "\"'":
+            tok = tok[1:-1]
+        out.append(tok)
+    return out
+
+
+def slug(name):
+    return re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")[:32]
+
+
+class AddProviderDialog(QDialog):
+    """Name, id and kind of a new provider; validated with customlib.validate before anything is saved."""
+
+    def __init__(self, win_):
+        super().__init__(win_)
+        self.w = win_
+        self.setWindowTitle("Add provider")
+        self.setModal(True)
+        self.setMinimumWidth(480)
+        self._id_touched = False
+        lay = QVBoxLayout(self)
+        lay.setSpacing(10)
+        form = QFormLayout()
+        form.setSpacing(8)
+        self.name = QLineEdit()
+        self.name.setMaxLength(customlib.MAX_NAME)
+        self.name.setPlaceholderText("Shown on the strip")
+        self.pid = QLineEdit()
+        self.pid.setMaxLength(32)
+        self.kind = QComboBox()
+        self.kind.addItems(["Manual", "Command"])
+        form.addRow("Name", self.name)
+        form.addRow("Id", self.pid)
+        form.addRow("Kind", self.kind)
+        lay.addLayout(form)
+
+        self.manual_box = QWidget()
+        mf = QFormLayout(self.manual_box)
+        mf.setContentsMargins(0, 0, 0, 0)
+        self.burn = QLineEdit()
+        self.burn.setPlaceholderText("optional, e.g. $1.50")
+        self.burn.setValidator(UsdValidator(self.burn))
+        mf.addRow("Daily burn", self.burn)
+        lay.addWidget(self.manual_box)
+
+        self.command_box = QWidget()
+        cf = QFormLayout(self.command_box)
+        cf.setContentsMargins(0, 0, 0, 0)
+        prow = QHBoxLayout()
+        self.program = QLineEdit()
+        self.program.setPlaceholderText(r"C:\Tools\balance.exe")
+        self.browse_btn = QPushButton("Browse...")
+        prow.addWidget(self.program, 1)
+        prow.addWidget(self.browse_btn)
+        cf.addRow("Program", prow)
+        self.args = QLineEdit()
+        self.args.setPlaceholderText('--json "a value with spaces"')
+        cf.addRow("Arguments", self.args)
+        self.preview = QLabel("")
+        self.preview.setObjectName("hint")
+        self.preview.setWordWrap(True)
+        self.preview.setTextFormat(Qt.TextFormat.PlainText)
+        self.preview.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        cf.addRow("Will run", self.preview)
+        self.needs_key = QCheckBox("Needs a key (passed to the program as FUMES_KEY)")
+        cf.addRow("", self.needs_key)
+        self.timeout = QSpinBox()
+        self.timeout.setRange(1, customlib.MAX_TIMEOUT)
+        self.timeout.setValue(customlib.TIMEOUT)
+        self.timeout.setSuffix(" s")
+        cf.addRow("Timeout", self.timeout)
+        lay.addWidget(self.command_box)
+
+        self.msg = QLabel("")
+        self.msg.setObjectName("msg")
+        self.msg.setWordWrap(True)
+        self.msg.setTextFormat(Qt.TextFormat.PlainText)
+        lay.addWidget(self.msg)
+        row = QHBoxLayout()
+        row.addStretch(1)
+        self.cancel_btn = QPushButton("Cancel")
+        self.add_btn = QPushButton("Add")
+        self.add_btn.setDefault(True)
+        row.addWidget(self.cancel_btn)
+        row.addWidget(self.add_btn)
+        lay.addLayout(row)
+
+        self.name.textChanged.connect(self._name_changed)
+        self.pid.textEdited.connect(lambda _t: setattr(self, "_id_touched", True))
+        self.kind.currentIndexChanged.connect(self._kind_changed)
+        self.program.textChanged.connect(self._preview)
+        self.args.textChanged.connect(self._preview)
+        self.browse_btn.clicked.connect(self.browse)
+        self.cancel_btn.clicked.connect(self.reject)
+        self.add_btn.clicked.connect(self.accept)
+        self._kind_changed()
+
+    def _name_changed(self, text):
+        if not self._id_touched:
+            self.pid.setText(slug(text))
+
+    def _kind_changed(self, _i=None):
+        manual = self.kind.currentIndex() == 0
+        self.manual_box.setVisible(manual)
+        self.command_box.setVisible(not manual)
+        self._preview()
+        self.adjustSize()
+
+    def browse(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Choose the program")
+        if path:
+            self.program.setText(path)
+
+    def argv(self):
+        """[program, *arguments], or raises ValueError (an unbalanced quote)."""
+        prog = self.program.text().strip()
+        return ([prog] if prog else []) + split_args(self.args.text())
+
+    def _preview(self, *_):
+        try:
+            argv = self.argv()
+        except ValueError:
+            self.preview.setText("A quote is not closed.")
+            return
+        self.preview.setText("[" + ", ".join(quote_arg(a) for a in argv) + "]" if argv else "(nothing yet)")
+
+    def spec(self):
+        spec = {"id": self.pid.text().strip(), "name": self.name.text().strip(),
+                "kind": "manual" if self.kind.currentIndex() == 0 else "command"}
+        if spec["kind"] == "manual":
+            if self.burn.text().strip():
+                burn = parse_usd(self.burn.text())
+                spec["burn_per_day"] = burn if burn else -1      # validate() rejects it with its own message
+        else:
+            spec["argv"] = self.argv()
+            spec["timeout"] = self.timeout.value()
+            spec["key"] = self.needs_key.isChecked()
+        return spec
+
+    def accept(self):
+        try:
+            self.w.add_provider(self.spec())
+        except customlib.ProviderSpecError as e:
+            self._show(str(e), bad=True)
+            return
+        except ValueError:
+            self._show("A quote in the arguments is not closed.", bad=True)
+            return
+        except OSError:
+            self._show("Could not save the provider list.", bad=True)
+            return
+        super().accept()
+
+    def _show(self, text, bad):
+        self.msg.setText(text)
+        self.msg.setProperty("bad", bad)
+        self.msg.style().unpolish(self.msg)
+        self.msg.style().polish(self.msg)
+
+
 class Page(QWidget):
     def label(self, text="", name=None, wrap=True):
         lb = QLabel(text)
@@ -173,6 +359,8 @@ class ProviderPage(Page):
     def __init__(self, win_, mod):
         super().__init__()
         self.w, self.mod = win_, mod
+        self.custom = isinstance(mod, customlib.Custom)      # a provider the user added
+        self.needs_key = bool(mod.KEY_LABEL)
         self._busy = {}
         lay = QVBoxLayout(self)
         lay.setSpacing(10)
@@ -201,9 +389,14 @@ class ProviderPage(Page):
         row.addWidget(self.key, 1)
         row.addWidget(self.save)
         row.addWidget(self.remove)
-        lay.addLayout(row)
+        self.key_box = QWidget()
+        kl = QVBoxLayout(self.key_box)
+        kl.setContentsMargins(0, 0, 0, 0)
+        kl.addLayout(row)
         self.key_msg = self.label("", "msg")
-        lay.addWidget(self.key_msg)
+        kl.addWidget(self.key_msg)
+        self.key_box.setVisible(self.needs_key)
+        lay.addWidget(self.key_box)
         self.save.clicked.connect(self.do_save)
         self.key.returnPressed.connect(self.do_save)
         self.remove.clicked.connect(self.do_remove)
@@ -238,15 +431,42 @@ class ProviderPage(Page):
             self.anchor_edit.returnPressed.connect(self.do_anchor)
             lay.addWidget(self.anchor_box)
 
+        self.cmd_view = self.burn_line = self.remove_provider = None
+        if self.custom:
+            self._custom_blocks(lay)
         self.guide = SafeBrowser(win_.open_link, link=win_.colors['link'])
-        self.guide.setMarkdown(load_guide(mod.ID))
+        self.guide.setMarkdown(load_guide(mod.kind if self.custom else mod.ID))
         lay.addWidget(self.guide, 1)
+        if self.custom:
+            self.remove_provider = QPushButton("Remove provider")
+            self.remove_provider.setObjectName("remove_provider")
+            self.remove_provider.clicked.connect(self.do_remove_provider)
+            rrow = QHBoxLayout()
+            rrow.addWidget(self.remove_provider)
+            rrow.addStretch(1)
+            lay.addLayout(rrow)
         self.refresh()
+
+    def _custom_blocks(self, lay):
+        mod = self.mod
+        if mod.kind == "manual":
+            self.burn_line = self.label(
+                f"Daily burn: {collect.money(mod.burn)} (counted down from the balance, shown as an estimate)"
+                if mod.burn else "No daily burn: the balance stays as entered.", "hint")
+            lay.insertWidget(1, self.burn_line)
+        else:
+            self.cmd_view = self.label(describe_command(mod.argv, mod.timeout), "cmdview")
+            self.cmd_view.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            lay.insertWidget(1, self.cmd_view)
 
     # ---- state ------------------------------------------------------------
     def refresh(self):
         has = self.w.store.has(self.mod.ID)
-        self.status.setText("Key saved" if has else "No key yet")
+        if self.custom:
+            kind = self.mod.kind.capitalize()
+            self.status.setText(f"{kind}, {'key saved' if has else 'no key yet'}" if self.needs_key else kind)
+        else:
+            self.status.setText("Key saved" if has else "No key yet")
         self.remove.setVisible(has)
         if self.anchor_line is not None:
             a = self.w.ledger.anchor(self.mod.ID)
@@ -313,8 +533,10 @@ class ProviderPage(Page):
     def do_test(self):
         if self.test_busy():
             return
-        typed = self.key.text()
-        if typed.strip():
+        typed = self.key.text() if self.needs_key else ""
+        if not self.needs_key:
+            key = None
+        elif typed.strip():
             key = keystore.valid_key(typed)
             if key is None:
                 self._error(self.test_msg, "That does not look like a key.")
@@ -325,17 +547,18 @@ class ProviderPage(Page):
             except keystore.KeyStoreError as e:
                 self._error(self.test_msg, str(e))
                 return
-        if not key:
-            self._error(self.test_msg, "Not connected: No key saved. Add one above.")
-            return
-        bad = keycheck.foreign(self.mod.ID, key)
-        if bad:
-            self._error(self.test_msg, bad)
-            return
-        hint = keycheck.kind_hint(self.mod.ID, key)
-        if hint:
-            self._error(self.test_msg, hint)
-            return
+        if self.needs_key:
+            if not key:
+                self._error(self.test_msg, "Not connected: No key saved. Add one above.")
+                return
+            bad = keycheck.foreign(self.mod.ID, key)
+            if bad:
+                self._error(self.test_msg, bad)
+                return
+            hint = keycheck.kind_hint(self.mod.ID, key)
+            if hint:
+                self._error(self.test_msg, hint)
+                return
         # a throwaway copy of the ledger: a test run must not record balance samples in the real one
         scratch = collect.Ledger(Path(tempfile.gettempdir()) / "fumes-test-ledger.json")
         scratch.anchors = deepcopy(self.w.ledger.anchors)
@@ -367,7 +590,8 @@ class ProviderPage(Page):
         self._note(self.anchor_msg, "Saving...")
         pid, store, ledger, http = self.mod.ID, self.w.store, self.w.ledger, self.w.http or collect.Http()
         now = datetime.now(timezone.utc)
-        self._start("anchor", lambda: collect.set_anchor(pid, usd, now, store, ledger, http),
+        mine = (self.mod,) if self.custom else ()
+        self._start("anchor", lambda: collect.set_anchor(pid, usd, now, store, ledger, http, custom=mine),
                     self._anchor_done)
 
     def _anchor_done(self, result):
@@ -386,6 +610,18 @@ class ProviderPage(Page):
         self._note(self.anchor_msg, warning or "Saved.")
         self.refresh()
         self.w.refresh_app()
+
+    # ---- removing a provider you added ------------------------------------
+    def do_remove_provider(self):
+        if not self.w.confirm(f"Remove the provider {self.mod.NAME}?\n\nIt leaves the strip and Settings. "
+                              "Nothing on the service itself changes."):
+            return
+        pid = self.mod.ID
+        key = self.needs_key and self.w.store.has(pid) and self.w.confirm(
+            f"Also delete the key saved for {self.mod.NAME} from this computer?")
+        anchor = self.w.ledger.anchor(pid) is not None and self.w.confirm(
+            f"Also delete the balance you entered for {self.mod.NAME}?")
+        self.w.remove_provider(pid, delete_key=key, delete_anchor=anchor)
 
     # ---- threads ----------------------------------------------------------
     def _start(self, name, fn, done):
@@ -533,20 +769,33 @@ class SettingsWindow(QWidget):
         outer.setSpacing(0)
         self.nav = QListWidget()
         self.nav.setObjectName("nav")
-        self.nav.setFixedWidth(210)
         self.nav.setIconSize(QSize(20, 20))
+        navcol = QWidget()
+        navcol.setObjectName("navcol")
+        navcol.setFixedWidth(210)
+        nl = QVBoxLayout(navcol)
+        nl.setContentsMargins(0, 0, 0, 0)
+        nl.setSpacing(0)
+        self.add_btn = QPushButton("Add provider...")
+        self.add_btn.setObjectName("add_provider")
+        self.add_btn.clicked.connect(self.open_add_dialog)
+        nl.addWidget(self.nav, 1)
+        nl.addWidget(self.add_btn)
         self.stack = QStackedWidget()
         body = QWidget()
         bl = QVBoxLayout(body)
         bl.setContentsMargins(22, 20, 22, 20)
         bl.addWidget(self.stack)
-        outer.addWidget(self.nav)
+        outer.addWidget(navcol)
         outer.addWidget(body, 1)
 
         self.ids = []
         self.pages = {}
         for mod in collect.providers():
             self._add(mod.ID, mod.NAME, ProviderPage(self, mod))
+        self.n_builtin = len(self.ids)
+        self.custom = []                 # [Custom] from providers.json; their pages sit after the built-ins
+        self.reload_custom()
         self._add("claude", "Claude limits", ClaudePage(self))
         self._add("safety", "Keeping keys safe", SafetyPage(self))
         self._add("general", "General", GeneralPage(self))
@@ -564,6 +813,13 @@ class SettingsWindow(QWidget):
         QListWidget#nav::item:selected {{ background: {c['sel']}; color: {c['ink']}; }}
         QLabel#title {{ font-size: 18px; font-weight: 600; }}
         QLabel#status, QLabel#hint {{ color: {c['ink2']}; }}
+        QLabel#cmdview {{ background: {c['panel']}; border: 1px solid {c['line']}; border-radius: 6px;
+                         padding: 6px; font-family: monospace; }}
+        QWidget#navcol {{ background: {c['panel']}; }}
+        QPushButton#add_provider {{ margin: 8px 10px; }}
+        QComboBox, QSpinBox {{ background: {c['panel']}; border: 1px solid {c['line']}; border-radius: 6px;
+                              padding: 5px 8px; }}
+        QDialog {{ background: {c['bg']}; }}
         QLabel#msg {{ color: {c['ink2']}; }}
         QLabel[bad="true"] {{ color: {c['bad']}; }}
         QLineEdit, QTextBrowser, QPlainTextEdit {{ background: {c['panel']}; border: 1px solid {c['line']};
@@ -575,14 +831,67 @@ class SettingsWindow(QWidget):
         QCheckBox {{ spacing: 8px; }}
         """
 
-    def _add(self, pid, name, page):
-        self.ids.append(pid)
+    def _add(self, pid, name, page, at=None):
+        at = len(self.ids) if at is None else at
+        self.ids.insert(at, pid)
         self.pages[pid] = page
-        self.stack.addWidget(page)
+        self.stack.insertWidget(at, page)
         item = QListWidgetItem(name)
         if pid not in ("general", "safety"):
             item.setIcon(QIcon(self.logo(pid, name, 20)))
-        self.nav.addItem(item)
+        self.nav.insertItem(at, item)
+
+    # ---- providers the user added -------------------------------------------
+    def reload_custom(self, select=None):
+        """Rebuild the custom pages from providers.json (after Settings changed it)."""
+        keep = select or (self.ids[self.nav.currentRow()] if self.nav.currentRow() >= 0 else None)
+        self.nav.blockSignals(True)
+        for mod in self.custom:
+            row = self.ids.index(mod.ID)
+            self.ids.pop(row)
+            page = self.pages.pop(mod.ID)
+            self.stack.removeWidget(page)
+            page.deleteLater()
+            self.nav.takeItem(row)
+        self.custom = customlib.load(self.folder)
+        for i, mod in enumerate(self.custom):
+            self._add(mod.ID, mod.NAME, ProviderPage(self, mod), at=self.n_builtin + i)
+        self.nav.blockSignals(False)
+        row = self.ids.index(keep) if keep in self.ids else 0
+        self.nav.setCurrentRow(row)
+        self._changed(row)
+
+    def open_add_dialog(self):
+        dlg = AddProviderDialog(self)
+        dlg.open()
+        self.add_dialog = dlg
+        return dlg
+
+    def add_provider(self, spec):
+        """Validate, save to providers.json and show the new page. Raises ProviderSpecError / OSError."""
+        clean = customlib.validate(spec, taken={m.ID for m in self.custom})
+        customlib.save(self.folder, [m.spec for m in self.custom] + [clean])
+        self.reload_custom(select=clean["id"])
+        self.refresh_app()
+
+    def remove_provider(self, pid, delete_key=False, delete_anchor=False):
+        specs = [m.spec for m in self.custom if m.ID != pid]
+        customlib.save(self.folder, specs)
+        notes = []
+        if delete_key:
+            try:
+                self.store.delete(pid)
+            except keystore.KeyStoreError as e:
+                notes.append(str(e))
+        if delete_anchor:
+            self.ledger.clear_anchor(pid)
+            try:
+                self.ledger.save()
+            except OSError:
+                notes.append("Could not save the ledger.")
+        self.reload_custom(select="general")
+        self.refresh_app()
+        return notes
 
     def logo(self, pid, name, size):
         dpr = self.dpr or self.devicePixelRatioF()
@@ -636,12 +945,27 @@ class SettingsWindow(QWidget):
 
     def render_png(self, path, dpr=1.0):
         """Render the whole window to a PNG (off-screen). Build the window with dpr= for sharp logos."""
+        return self._grab(self, path, dpr)
+
+    def render_add_dialog(self, path, dpr=1.0):
+        """The Add provider dialog, filled with an example command provider, to a PNG."""
+        dlg = AddProviderDialog(self)
+        dlg.kind.setCurrentIndex(1)
+        dlg.name.setText("Acme")
+        dlg.program.setText("python")
+        dlg.args.setText(r'C:\Tools\acme-balance.py --json "two words"')
+        dlg.needs_key.setChecked(True)
+        dlg.resize(dlg.sizeHint().expandedTo(dlg.minimumSize()))
+        return self._grab(dlg, path, dpr)
+
+    @staticmethod
+    def _grab(widget, path, dpr):
         from PyQt6.QtGui import QImage, QPainter
-        self.ensurePolished()
-        img = QImage(round(self.width() * dpr), round(self.height() * dpr), QImage.Format.Format_ARGB32)
+        widget.ensurePolished()
+        img = QImage(round(widget.width() * dpr), round(widget.height() * dpr), QImage.Format.Format_ARGB32)
         img.setDevicePixelRatio(dpr)
         img.fill(0)
         p = QPainter(img)
-        self.render(p)
+        widget.render(p)
         p.end()
         return img.save(str(path))

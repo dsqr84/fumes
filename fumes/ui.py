@@ -12,6 +12,7 @@ from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon, QToolTip, QWidget
 
 from . import collect, keystore
+from .collect import custom
 from . import feed as feedmod
 from . import fmt, fonts, gauge, limits as limmod, links, logos, place, win
 from .logos import LOGO_DIR, badge_color  # noqa: F401 (re-exported)
@@ -695,15 +696,16 @@ class CollectThread(QThread):
     """Local collection: asks each provider's own API with the saved keys. Same signal as FetchThread."""
     done = pyqtSignal(object, object, str)  # feed or None, raw payload or None, error text
 
-    def __init__(self, store, ledger, http, previous, enabled, parent=None):
+    def __init__(self, store, ledger, http, previous, enabled, parent=None, custom=()):
         super().__init__(parent)
         self.store, self.ledger, self.http = store, ledger, http
-        self.previous, self.enabled = previous, enabled
+        self.previous, self.enabled, self.custom = previous, enabled, list(custom)
 
     def run(self):
         try:
             payload, failed = collect.collect(datetime.now(timezone.utc), self.store, self.ledger,
-                                              http=self.http, previous=self.previous, enabled=self.enabled)
+                                              http=self.http, previous=self.previous, enabled=self.enabled,
+                                              custom=self.custom)
             if self.ledger.anchors or self.ledger.samples:   # nothing to remember: write nothing
                 self.ledger.save()
             self.done.emit(feedmod.parse_feed(payload), payload,
@@ -901,7 +903,9 @@ class App:
             self.thread = FetchThread(self.cfg.url)
         else:
             prev = self.state.cache if isinstance(self.state.cache, dict) else None
-            self.thread = CollectThread(self.store, self.ledger, self.http, prev, self.cfg.providers or None)
+            # providers.json is read at every refresh, so an edit in Settings applies at the next one
+            self.thread = CollectThread(self.store, self.ledger, self.http, prev, self.cfg.providers or None,
+                                        custom=custom.load(self.folder))
         self.thread.done.connect(self._fetched)
         self.thread.start()
 

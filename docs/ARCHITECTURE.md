@@ -14,9 +14,17 @@ These are durable facts about the code: how the parts fit and what is baked in t
   `stale`. `collect/http.py` is the only network path for keys: HTTPS only (refused before connecting), redirects
   never followed (urllib would resend the key header), 8 MB cap, 20 s timeout, and errors carry the host and
   exception type or the HTTP status and error type only, never a body (a provider's message can quote the key).
+- **Custom providers** (`collect/custom.py`, `providers.json`, written by Settings): `Custom` objects quack like provider
+  modules and are loaded on every local refresh, never in remote-feed mode. *Manual*: the newest anchor, optionally minus
+  `burn_per_day`. *Command*: `argv` run with no shell, from the config folder, no console window, stdin closed, stderr
+  discarded (it could echo the key), stdout read only up to 1 MB (`_read_bounded`: the program is killed past the cap or
+  the timeout, so neither memory nor time is unbounded), parsed by `parse_output` as untrusted. Its key, if any, is
+  `FUMES_KEY` in its environment, and every other `FUMES_KEY*` variable is removed first. The wrong-provider check does
+  not apply to custom ids: their key goes to the user's own program, which may legitimately take any provider's key.
 - **Wrong-provider check** (`keycheck.py`): a key whose format clearly belongs to another provider (`sk-ant-`,
   `sk-proj-`/`sk-admin-`/`sk-svcacct-`, legacy OpenAI keys containing `T3BlbkFJ`, DeepSeek's `sk-` + 32 hex) is never
-  saved or sent: Save, Test (`settings.run_test` is the last gate), `fumes key set`, `collect()` and `set_anchor`. Only
+  saved or sent to a *built-in* provider: Save, Test (`settings.run_test` is the last gate), `fumes key set`, `collect()`
+  and `set_anchor`. Only
   unmistakable formats are recognised (fal's is not); anything else passes. `kind_hint` warns about the right
   provider's wrong kind of key (project or workspace keys where an Admin key is needed).
 - **Keys** (`keystore.py`): Windows Credential Manager generic credentials `Fumes/<id>`, persisted per user on this
