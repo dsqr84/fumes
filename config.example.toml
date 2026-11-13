@@ -1,0 +1,22 @@
+# Copy to %APPDATA%\fumes\config.toml (Windows) or ~/.config/fumes/config.toml.
+# Every key is optional; the value shown is the default.
+
+# url = "https://example.com/ai-usage.json"          # optional remote feed (off when unset)
+# details_url = "https://example.com/ai-usage.html"
+# refresh_minutes = 10        # how often to fetch
+# stale_after_minutes = 150   # older than this (by the feed's "generated"): dim + age label
+# anchor = "tray"             # "tray" (left of the notification area), "left" or "right"
+# margin = 8                  # px gap from the anchor
+# theme = "auto"              # "auto" (read Windows), "dark" (light ink) or "light" (dark ink)
+# providers = ["deepseek", "openai", "fal", "anthropic", "acme"]   # which to show, in order (a not-connected one with no figure stays hidden)
+# font_size = 14              # points; leave unset to size the figures to the logos' height
+# show_limits = true          # the Claude limits cell (leftmost; a bar per window) and its collapse button
+# limits_url = "https://example.com/claude-limits.json"   # optional remote Claude limits (off when unset)
+# limits_refresh_minutes = 2  # fetched on its own timer
+# browser = "chrome"          # open links in Chrome when found; "default" uses the system browser
+
+# Console / billing page opened from each provider's peek. These are the defaults; acme has none.
+# [links]
+# claude = "https://claude.ai/settings/usage"   # the Usage page link of the Claude peek (default shown)
+# openai = "https://platform.openai.com/settings/organization/billing/overview"
+# acme = "https://example.com/billing"
