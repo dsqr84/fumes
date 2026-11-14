@@ -923,6 +923,7 @@ class SettingsWindow(QWidget):
             return self._confirm(text)
         box = QMessageBox(self)
         box.setWindowTitle("Fumes")
+        box.setTextFormat(Qt.TextFormat.PlainText)     # the text can carry a user-chosen provider name
         box.setText(text)
         box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         box.setDefaultButton(QMessageBox.StandardButton.No)

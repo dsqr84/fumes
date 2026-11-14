@@ -39,7 +39,7 @@ def setup_prompt(root=None):
 def _raw_specs(folder):
     try:
         doc = json.loads((Path(folder) / custom.FILE).read_text("utf-8"))
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         return []
     specs = doc.get("providers") if isinstance(doc, dict) else None
     return specs if isinstance(specs, list) else []
@@ -69,7 +69,7 @@ def statusline_state(settings_path=None):
     try:
         with open(path, "rb") as f:
             doc = json.loads(f.read(MAX_SETTINGS + 1).decode("utf-8"))
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         return "missing"
     sl = doc.get("statusLine") if isinstance(doc, dict) else None
     if not isinstance(sl, dict) or not sl:
@@ -86,7 +86,7 @@ def limits_reading(folder, state):
     try:
         with open(Path(folder) / statusline.FILE, "rb") as f:
             docs.append(json.loads(f.read(65536).decode("utf-8")))
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         pass
     if state is not None and state.limits_cache:
         docs.append(state.limits_cache)

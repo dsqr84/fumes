@@ -151,7 +151,7 @@ class State:
         st = cls(path)
         try:
             d = json.loads(Path(path).read_text("utf-8"))
-        except (OSError, ValueError):
+        except (OSError, ValueError, RecursionError):
             return st
         if not isinstance(d, dict):
             return st
@@ -167,12 +167,20 @@ class State:
 
     def save(self):
         """Atomic: write a temp file beside the target, then replace."""
+        # The caches are raw documents from the network: one that cannot be written (nested too deeply,
+        # odd values) is dropped rather than raised, which on the UI thread would abort the app.
+        try:
+            text = json.dumps({"offset": self.offset, "cache": self.cache,
+                               "limits_cache": self.limits_cache, "collapsed": self.collapsed})
+        except (ValueError, TypeError, RecursionError):
+            self.cache = self.limits_cache = None
+            text = json.dumps({"offset": self.offset, "cache": None, "limits_cache": None,
+                               "collapsed": self.collapsed})
         self.path.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp = tempfile.mkstemp(dir=self.path.parent, prefix=".state-", suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump({"offset": self.offset, "cache": self.cache,
-                           "limits_cache": self.limits_cache, "collapsed": self.collapsed}, f)
+                f.write(text)
             os.replace(tmp, self.path)
         except BaseException:
             try:

@@ -24,8 +24,10 @@ class Resp:
     def __init__(self, status=200, body=b"{}"):
         self.status, self._b = status, body
 
-    def read(self, n=-1):
-        return self._b if n < 0 else self._b[:n]
+    def read(self, n=-1):         # a stream: each read consumes what it returns
+        out = self._b if n < 0 else self._b[:n]
+        self._b = self._b[len(out):]
+        return out
 
     def __enter__(self):
         return self
@@ -84,12 +86,15 @@ def test_get_json_non_200_and_non_dict():
         h.Http(opener=Opener(Resp(200, b"[1]"))).get_json("https://x.test", {})
 
 
-def test_refusal_drops_message_and_odd_characters():
+def test_refusal_keeps_only_code_shaped_types():
     body = {"error": {"type": "auth<script>error", "message": "Invalid key sk-abc123"}}
     r = h.refusal(401, body)
-    assert r == "HTTP 401 (authscripterror)" and "sk-abc123" not in r
+    assert r == "HTTP 401" and "sk-abc123" not in r                          # odd type: dropped whole
+    assert h.refusal(403, {"error": {"type": "permission_error"}}) == "HTTP 403 (permission_error)"
+    for echoed in ("sk-ant-admin01-ABCDEFGHIJKLMNOP", "sk-proj-abc123", "Bearer xyz"):
+        assert h.refusal(401, {"error": {"code": echoed}}) == "HTTP 401"       # a reflected key never survives
     assert h.refusal(500, "oops text") == "HTTP 500"
     assert h.refusal(403, {"error": {"code": "forbidden"}}) == "HTTP 403 (forbidden)"
     assert h.refusal(400, {"type": "error", "error": "plain string"}) == "HTTP 400 (error)"
     assert h.refusal(400, {"error": "plain string"}) == "HTTP 400"
-    assert len(h.refusal(400, {"error": {"type": "a" * 100}})) == len("HTTP 400 ()") + 40
+    assert h.refusal(400, {"error": {"type": "a" * 100}}) == "HTTP 400"          # longer than any code: dropped

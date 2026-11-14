@@ -122,6 +122,26 @@ def anchored_note(a, source):
 
 
 # ---------------------------------------------------------------- collect --
+REDACTED = "[redacted]"
+
+
+def _scrub(text, key):
+    """`text` with any word that contains the key, or its first 12 characters, replaced."""
+    if not isinstance(text, str) or not key or len(key) < 12:
+        return text
+    probe = key[:12]
+    if probe not in text and key not in text:
+        return text
+    return " ".join(REDACTED if (probe in w or key in w) else w for w in text.split(" "))
+
+
+def _redact(got, key):
+    """A provider's answer can echo the key it was sent (in a label, a note): none of it may reach the
+    cache, the strip or a diagnostic."""
+    if not key:
+        return got
+    rows = [(d, _scrub(label, key), usd) for d, label, usd in (got.get("rows") or [])]
+    return dict(got, rows=rows, note=_scrub(got.get("note") or "", key))
 def collect(now, store, ledger, http=None, previous=None, enabled=None, custom=()):
     """(payload, ids of the providers that failed this run). `enabled`: the ids to ask (default all).
     One provider failing never touches the others: it keeps its previous figures, marked stale."""
@@ -139,11 +159,12 @@ def collect(now, store, ledger, http=None, previous=None, enabled=None, custom=(
             if bad:                  # never send another provider's key to this one
                 raise NotConnected(bad)
             got = mod.run(ctx)
+            got = _redact(got, ctx.key)
             bal = got.get("balance")
             entry = dict(summarise(got.get("rows") or [], now), status="ok", checked=stamp,
                          balance=None if bal is None else round(bal, 6), note=got.get("note") or "")
         except NotConnected as e:
-            entry = dict(EMPTY, status="not_connected", checked=stamp, note=str(e))
+            entry = dict(EMPTY, status="not_connected", checked=stamp, note=_scrub(str(e), ctx.key))
             a = ledger.anchor(mod.ID) if getattr(mod, "ANCHORED", False) else None
             if a:   # nothing to subtract, so the entered balance is shown as entered
                 entry["balance"] = round(a["usd"], 6)
@@ -151,7 +172,7 @@ def collect(now, store, ledger, http=None, previous=None, enabled=None, custom=(
                                   "down while spend cannot be read.")
         except Exception as e:     # noqa: BLE001 (one provider never takes the others down)
             failed.append(mod.ID)
-            reason = str(e) if isinstance(e, ProviderError) else type(e).__name__
+            reason = _scrub(str(e), ctx.key) if isinstance(e, ProviderError) else type(e).__name__
             old = ((previous or {}).get("providers") or {}).get(mod.ID) or {}
             if isinstance(old, dict) and old.get("status") in ("ok", "stale"):
                 entry = dict(old, status="stale", error=reason)   # keeps its own `checked`

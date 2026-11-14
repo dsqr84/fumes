@@ -76,13 +76,13 @@ def _window(v):
     for n in (used, at):
         if isinstance(n, bool) or not isinstance(n, (int, float)):
             return None
-    if used != used or used < 0 or at != at:
-        return None
     try:
-        at = int(at)
+        used, at = float(used), float(at)      # a 400-digit integer raises OverflowError here, not later
     except (OverflowError, ValueError):
         return None
-    return Window(used=min(float(used), MAX_USED), resets_at=min(at, MAX_RESETS_AT))
+    if used != used or used < 0 or not math.isfinite(at):
+        return None                        # NaN or a negative reading; an infinite one clamps below
+    return Window(used=min(used, MAX_USED), resets_at=min(int(at), MAX_RESETS_AT))
 
 
 def parse_limits(obj) -> Limits:

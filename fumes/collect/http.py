@@ -9,6 +9,8 @@ Every call carries an API key in a header, so:
 """
 
 import json
+import re
+import time
 import ssl
 import urllib.error
 import urllib.parse
@@ -18,6 +20,7 @@ from .. import __version__
 
 MAX_BYTES = 8 * 1024 * 1024
 TIMEOUT = 20
+DEADLINE = 60          # seconds for a whole request: a server dripping bytes cannot hold it open longer
 USER_AGENT = f"fumes/{__version__}"
 
 
@@ -53,7 +56,7 @@ class Http:
                                                                    "Accept": "application/json"}))
         try:
             with self._opener.open(req, timeout=self.timeout) as r:
-                status, raw = r.status, r.read(self.max_bytes + 1)
+                status, raw = r.status, _read_until(r, self.max_bytes + 1, time.monotonic() + DEADLINE)
         except urllib.error.HTTPError as e:
             status = e.code
             try:
@@ -69,7 +72,7 @@ class Http:
         text = raw.decode("utf-8", "replace")
         try:
             return status, json.loads(text)
-        except ValueError:
+        except (ValueError, RecursionError):
             return status, text
 
     def get_json(self, url, headers):
@@ -78,6 +81,21 @@ class Http:
         if status != 200 or not isinstance(body, dict):
             raise ProviderError(refusal(status, body))
         return body
+
+
+def _read_until(resp, limit, deadline):
+    """Read at most `limit` bytes, in chunks, giving up at `deadline` (time.monotonic). Each chunk still has
+    the socket timeout; the deadline bounds the whole body."""
+    parts, n = [], 0
+    while n < limit:
+        if time.monotonic() > deadline:
+            raise TimeoutError("the answer took too long")
+        chunk = resp.read(min(65536, limit - n))
+        if not chunk:
+            break
+        parts.append(chunk)
+        n += len(chunk)
+    return b"".join(parts)
 
 
 def refusal(status, body):
@@ -90,5 +108,7 @@ def refusal(status, body):
             kind = err.get("type") or err.get("code") or ""
         elif isinstance(body.get("type"), str):
             kind = body["type"]
-    kind = "".join(ch for ch in str(kind)[:40] if ch.isalnum() or ch in "_-.")
+    # Only something shaped like an error code is kept: a hostile or buggy answer could put (part of)
+    # the key it was sent in here, and keys have digits, capitals and dashes that codes do not.
+    kind = str(kind) if re.fullmatch(r"[a-z][a-z_]{0,39}", str(kind)) else ""
     return f"HTTP {status}" + (f" ({kind})" if kind else "")

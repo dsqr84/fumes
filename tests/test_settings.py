@@ -405,3 +405,20 @@ def test_general_copies_the_setup_prompt(env, tmp_path):
     assert got == diagnose.setup_prompt() and "<FOLDER" not in got and "fumes key set" in got
     assert g.prompt_msg.text() == "Copied."
     assert any("never needs your keys" in t for t in texts(env))
+
+
+def test_the_real_confirmation_box_shows_text_never_html(qapp, tmp_path, monkeypatch):
+    """A provider name like <img src=...> must not render: the box is plain text."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtWidgets import QMessageBox
+    seen = {}
+
+    def fake_exec(box):
+        seen["format"], seen["text"] = box.textFormat(), box.text()
+        return QMessageBox.StandardButton.No
+    monkeypatch.setattr(QMessageBox, "exec", fake_exec)
+    w = settings.SettingsWindow(keystore.MemoryStore(), collect.Ledger(tmp_path / "l.json"), folder=tmp_path,
+                                cfg=Config(), opener=lambda u: True)
+    assert w.confirm('Remove <img src="file://evil/s/i">?') is False
+    assert seen["format"] == Qt.TextFormat.PlainText and "<img" in seen["text"]
+    w.close()

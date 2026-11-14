@@ -107,6 +107,9 @@ class Custom:
             if not ctx.key:
                 raise NotConnected(f"No key saved. Run: fumes key set {self.ID}")
             env["FUMES_KEY"] = ctx.key
+        if _is_batch(self.argv[0]):
+            raise ProviderError("batch files (.bat, .cmd) cannot be run: Windows passes their arguments "
+                                "through cmd.exe. Run the program the batch file starts instead.")
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
         try:
             proc = subprocess.Popen(self.argv, cwd=str(self.folder) if self.folder else None, env=env,
@@ -146,13 +149,21 @@ def _read_bounded(proc, timeout):
         proc.kill()
         proc.wait()
     reader.join(1.0)
-    try:
-        proc.stdout.close()
-    except OSError:
-        pass
+    if not reader.is_alive():   # a child the program started can still hold the pipe; then leave it to the daemon
+        try:
+            proc.stdout.close()
+        except OSError:
+            pass
     if timed_out:
         return None
     return got[0] if got else b""
+
+
+def _is_batch(program):
+    """A .bat or .cmd file, named or found on PATH (a bare `run` can resolve to run.cmd on Windows)."""
+    import shutil
+    found = shutil.which(program) or program
+    return str(found).lower().rstrip(". ").endswith((".bat", ".cmd"))
 
 
 def _money(v):
@@ -165,7 +176,7 @@ def parse_output(raw):
     raises ProviderError with what was wrong (never the output itself)."""
     try:
         doc = json.loads(raw.decode("utf-8") if isinstance(raw, bytes) else raw)
-    except (ValueError, UnicodeDecodeError):
+    except (ValueError, UnicodeDecodeError, RecursionError):
         raise ProviderError("the command did not print JSON") from None
     if not isinstance(doc, dict):
         raise ProviderError("the command's JSON is not an object")
@@ -218,6 +229,9 @@ def validate(spec, taken=()):
         if (not isinstance(argv, list) or not argv or len(argv) > MAX_ARGS
                 or not all(isinstance(a, str) and a and len(a) <= MAX_ARG and "\x00" not in a for a in argv)):
             raise ProviderSpecError("the command must be a program and its arguments, as a list of strings")
+        if _is_batch(argv[0]):
+            raise ProviderSpecError("a batch file (.bat, .cmd) cannot be the program: Windows passes its "
+                                    "arguments through cmd.exe. Choose the program it starts instead")
         out["argv"] = list(argv)
         t = spec.get("timeout", TIMEOUT)
         if isinstance(t, bool) or not isinstance(t, int) or not 1 <= t <= MAX_TIMEOUT:
@@ -232,7 +246,7 @@ def load(folder):
     folder = Path(folder)
     try:
         doc = json.loads((folder / FILE).read_text("utf-8"))
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         return []
     out, taken = [], set()
     specs = doc.get("providers") if isinstance(doc, dict) else None

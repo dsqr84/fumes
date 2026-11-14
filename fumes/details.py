@@ -9,7 +9,7 @@ from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QFont, QFontMetrics, QImage, QPainter, QPen
 from PyQt6.QtWidgets import QPushButton, QScrollArea, QToolTip, QWidget
 
-from . import feed as feedmod, fmt, fonts
+from . import feed as feedmod, fmt, fonts, guard
 from .peek import STATUS, THEMES
 
 WIN_W, WIN_H = 1040, 760
@@ -269,11 +269,15 @@ class Page(QWidget):
         p.drawRoundedRect(rect.adjusted(0.5, 0.5, -0.5, -0.5), 8, 8)
 
     def paintEvent(self, _ev):
-        if self._L is None:
-            self.relayout()
         p = QPainter(self)
-        self.paint_to(p)
-        p.end()
+        try:
+            if self._L is None:
+                self.relayout()
+            self.paint_to(p)
+        except Exception:               # noqa: BLE001 — under PyQt6 a raise here aborts the whole app
+            guard.paint_failed(self)
+        finally:
+            p.end()
 
     def paint_to(self, p):
         o, L = self.owner, self._L

@@ -58,7 +58,7 @@ class Ledger:
         led = cls(path)
         try:
             d = json.loads(Path(path).read_text("utf-8"))
-        except (OSError, ValueError):
+        except (OSError, ValueError, RecursionError):
             return led
         if not isinstance(d, dict):
             return led

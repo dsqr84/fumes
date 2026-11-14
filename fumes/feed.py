@@ -1,6 +1,8 @@
 """Fetch, validate and normalise the ai-usage JSON feed. No Qt."""
 
+import math
 import re
+import time
 import json
 import urllib.request
 from dataclasses import dataclass, field
@@ -37,6 +39,9 @@ class Feed:
 
 
 MAX_BREAKDOWN = 50
+MAX_USD = 1e9      # any dollar figure beyond this is treated as missing: no sum of them can overflow
+MAX_BYTES = 8 * 1024 * 1024
+MAX_DAYS = 400     # daily entries kept from a feed (the chart shows 30)
 MAX_LABEL = 200
 MAX_NAME = 80      # free text from the network is capped before anything measures or draws it
 MAX_TEXT = 2000
@@ -70,6 +75,8 @@ def _daily(v):
         d, n = _day(k), _usd(amount)
         if d is not None and n is not None:
             out[d] = n
+            if len(out) >= MAX_DAYS:
+                break
     return out
 
 
@@ -92,13 +99,19 @@ def _breakdown(v):
 def _days(v):
     if not isinstance(v, list):
         return []
-    return [d for d in (_day(x) for x in v) if d is not None]
+    return [d for d in (_day(x) for x in v[:MAX_DAYS]) if d is not None]
 
 
 def _num(v):
+    """A finite number within ±MAX_USD (not a bool), else None. NaN, infinity and absurd values from an
+    untrusted feed would otherwise reach formatting and the chart maths."""
     if isinstance(v, bool) or not isinstance(v, (int, float)):
         return None
-    return float(v)
+    try:
+        n = float(v)
+    except (OverflowError, ValueError):
+        return None
+    return n if math.isfinite(n) and abs(n) <= MAX_USD else None
 
 
 def _str(v):
@@ -206,15 +219,20 @@ def select(feed: Feed, wanted=None):
 
 def fetch_raw(url, timeout=10):
     """GET and decode JSON. Returns the decoded object; raises FeedError."""
+    if not isinstance(url, str) or not url.lower().startswith(("http://", "https://")):
+        raise FeedError("fetch failed: only http and https feeds are read")
     req = urllib.request.Request(url, headers={"User-Agent": "fumes"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
-            data = r.read()
+            from .collect.http import DEADLINE, _read_until
+            data = _read_until(r, MAX_BYTES + 1, time.monotonic() + DEADLINE)
     except Exception as e:  # URLError, HTTPError, timeout, ValueError, OSError
-        raise FeedError(f"fetch failed: {e}") from e
+        raise FeedError(f"fetch failed: {type(e).__name__}") from e
+    if len(data) > MAX_BYTES:
+        raise FeedError("fetch failed: the feed is too large")
     try:
         return json.loads(data.decode("utf-8"))
-    except (ValueError, UnicodeDecodeError) as e:
+    except (ValueError, UnicodeDecodeError, RecursionError) as e:
         raise FeedError(f"bad JSON: {e}") from e
 
 

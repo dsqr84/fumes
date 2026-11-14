@@ -104,8 +104,10 @@ def short_date(day):
 
 def nice_top(v):
     """Round an axis top up to 1, 2 or 5 times a power of ten (never below v; 1 for v <= 0)."""
-    if not v or v <= 0 or v != v:
+    if not v or v != v or v <= 0:
         return 1.0
+    if not math.isfinite(v) or v > 1e12:
+        return 1e12                       # never raises: math.floor(log10(inf)) would, inside a paint event
     exp = math.floor(math.log10(v))
     for k in (1, 2, 5, 10):
         top = k * 10.0 ** exp

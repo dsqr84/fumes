@@ -115,6 +115,9 @@ def foreground_fullscreen(strip_hwnd):
 
 
 GUI_EXE, CLI_EXE = "Fumes.exe", "fumes-cli.exe"     # the release build (PyInstaller, one folder)
+# Claude Code on Windows runs its status line through Git Bash, which expands these even inside double
+# quotes: a folder named `Fumes$(...)` would run a command. Such a path is refused, not quoted.
+SHELL_UNSAFE = "'\"$`!\\"
 
 
 def frozen():
@@ -125,7 +128,7 @@ def _frozen_exe(name):
     """The quoted path of one of the release's two programs, beside the running one."""
     import os
     path = os.path.join(os.path.dirname(os.path.abspath(sys.executable)), name).replace("\\", "/")
-    if '"' in path:
+    if any(ch in path for ch in SHELL_UNSAFE):
         raise ValueError(f"cannot quote {path!r} for a command")
     return path
 
@@ -161,11 +164,11 @@ def statusline_command(root=None, exe=None):
     if exe.lower().endswith("pythonw.exe"):
         exe = exe[: -len("pythonw.exe")] + "python.exe"
     exe = exe.replace("\\", "/")
-    if "'" in exe or '"' in exe:
+    if any(ch in exe for ch in SHELL_UNSAFE):
         raise ValueError(f"cannot quote {exe!r} for a command")
     root = root or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     path = root.replace("\\", "/")
-    if "'" in path or '"' in path:
+    if any(ch in path for ch in SHELL_UNSAFE):
         raise ValueError(f"cannot quote {root!r} for a command")
     return (f'"{exe}" -c "import sys,runpy;sys.path.insert(0,\'{path}\');'
             f'runpy.run_module(\'fumes.statusline\',run_name=\'__main__\')"')

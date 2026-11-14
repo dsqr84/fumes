@@ -205,6 +205,8 @@ def main(argv=None):
 
     from . import ui
 
+    from . import guard
+    guard.install_excepthook()         # before any widget: an error in a Qt callback must not abort the app
     app = QApplication.instance() or QApplication(sys.argv[:1])
     app.setQuitOnLastWindowClosed(False)
 

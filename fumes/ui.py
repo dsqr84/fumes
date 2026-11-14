@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon, QToolTip, QWid
 from . import collect, keystore
 from .collect import custom
 from . import feed as feedmod
-from . import fmt, fonts, gauge, limits as limmod, links, logos, place, win
+from . import fmt, fonts, gauge, guard, limits as limmod, links, logos, place, win
 from .logos import LOGO_DIR, badge_color  # noqa: F401 (re-exported)
 from . import config as cfgmod
 from .config import Config, State
@@ -484,8 +484,12 @@ class Strip(QWidget):
 
     def paintEvent(self, _ev):
         p = QPainter(self)
-        self.paint_to(p, self.devicePixelRatioF())
-        p.end()
+        try:
+            self.paint_to(p, self.devicePixelRatioF())
+        except Exception:               # noqa: BLE001 — under PyQt6 a raise here aborts the whole app
+            guard.paint_failed(self)
+        finally:
+            p.end()
 
     def render_png(self, path, dpr=1.0):
         """Render onto a theme-coloured background (for --once-png)."""
@@ -960,7 +964,7 @@ class App:
                 raise ValueError("too large")
             raw = json.loads(data.decode("utf-8"))
             lim = limmod.parse_limits(raw)
-        except (ValueError, UnicodeDecodeError, feedmod.FeedError):
+        except (ValueError, UnicodeDecodeError, RecursionError, feedmod.FeedError):
             self._limits_fetched(None, None, "unreadable")
             return
         self._limits_fetched(lim, raw, "")

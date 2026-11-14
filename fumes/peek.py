@@ -5,7 +5,7 @@ from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer
 from PyQt6.QtWidgets import QWidget
 from PyQt6.QtGui import QColor, QFont, QFontMetrics, QImage, QPainter, QPainterPath, QPen
 
-from . import feed as feedmod, fmt, gauge, limits as limmod, logos, place
+from . import feed as feedmod, fmt, gauge, guard, limits as limmod, logos, place
 from .config import CLAUDE_USAGE_URL  # noqa: F401
 from . import links as linkmod
 
@@ -520,8 +520,12 @@ class Peek(QWidget):
 
     def paintEvent(self, _ev):
         p = QPainter(self)
-        self.paint_to(p, self.devicePixelRatioF())
-        p.end()
+        try:
+            self.paint_to(p, self.devicePixelRatioF())
+        except Exception:               # noqa: BLE001 — under PyQt6 a raise here aborts the whole app
+            guard.paint_failed(self)
+        finally:
+            p.end()
 
     def render_png(self, path, dpr=1.0, margin=14):
         bg = QColor({"dark": "#202020", "light": "#f3f3f3"}[self.theme])
@@ -537,9 +541,11 @@ class Peek(QWidget):
 
     # ---- hit testing ---------------------------------------------------------
     def day_at(self, x, y):
-        L = self._L
+        L = self._L or {}
         days = self.strip.feed.days if self.strip.feed else []
-        if self.is_limits or not days or not (L["chart_top"] <= y <= L["base"] + 1) or not (PAD <= x < PAD + INNER):
+        if self.is_limits or not days or "chart_top" not in L or "base" not in L:
+            return None                   # no chart in this peek (balance only, error, empty)
+        if not (L["chart_top"] <= y <= L["base"] + 1) or not (PAD <= x < PAD + INNER):
             return None
         return min(len(days) - 1, int((x - PAD) / self._slot(len(days))))
 
