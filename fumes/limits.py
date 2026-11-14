@@ -19,11 +19,19 @@ GRADIENT = {
     "dark": ((0.0, "#7fd08e"), (0.5, "#e6c34a"), (0.75, "#e8963c"), (1.0, "#e0453a")),
     "light": ((0.0, "#4fb86a"), (0.5, "#d4a82a"), (0.75, "#dd7f1f"), (1.0, "#cf3a2f")),
 }
+# Per-model weekly limits (`seven_day_models`, e.g. Fable) are drawn in blue, so they never read as the
+# all-models weekly bar beside them. Same rule: fixed to the track, the fill only reveals it.
+MODEL_GRADIENT = {
+    "dark": ((0.0, "#9fd8ff"), (0.5, "#56a8f2"), (1.0, "#2f62e6")),
+    "light": ((0.0, "#5fb2ee"), (0.5, "#2b82d4"), (1.0, "#1d44b4")),
+}
 HOT_AT = 90.0                    # the peek gives the reset line more weight from here
+MAX_MODELS, MAX_MODEL_NAME = 4, 24
 
 
-def gradient_stops(theme):
-    return GRADIENT["dark" if theme == "dark" else "light"]
+def gradient_stops(theme, kind="all"):
+    table = MODEL_GRADIENT if kind == "model" else GRADIENT
+    return table["dark" if theme == "dark" else "light"]
 
 
 @dataclass(frozen=True)
@@ -37,6 +45,17 @@ class Limits:
     five_hour: "Window | None"
     seven_day: "Window | None"
     updated: object   # aware UTC datetime
+    models: tuple = ()  # ((model display name, Window), ...): weekly limits for one model, e.g. ("Fable", w)
+
+
+def windows(lim):
+    """[(caption, Window or None, kind)] for every window in a Limits (or the two absent ones without):
+    kind "all" for the plan's own windows, "model" for a per-model weekly one."""
+    out = [("5-hour limit", lim.five_hour if lim else None, "all"),
+           ("Weekly limit", lim.seven_day if lim else None, "all")]
+    for name, w in (lim.models if lim else ()):
+        out.append((f"Weekly limit, {name}", w, "model"))
+    return out
 
 
 @dataclass(frozen=True)
@@ -73,7 +92,23 @@ def parse_limits(obj) -> Limits:
     updated = feedmod.parse_time(obj.get("updated"))
     if updated is None:
         raise FeedError("missing or invalid 'updated'")
-    return Limits(_window(obj.get("five_hour")), _window(obj.get("seven_day")), updated)
+    return Limits(_window(obj.get("five_hour")), _window(obj.get("seven_day")), updated,
+                  _models(obj.get("seven_day_models")))
+
+
+def _models(raw):
+    """Untrusted: up to MAX_MODELS well-formed entries with a short printable name; anything else dropped."""
+    out = []
+    for name, v in raw.items() if isinstance(raw, dict) else ():
+        if len(out) >= MAX_MODELS:
+            break
+        if not isinstance(name, str):
+            continue
+        clean = "".join(ch for ch in name if ch.isprintable()).strip()[:MAX_MODEL_NAME]
+        w = _window(v)
+        if clean and w is not None:
+            out.append((clean, w))
+    return tuple(out)
 
 
 def fetch(url, timeout=10):

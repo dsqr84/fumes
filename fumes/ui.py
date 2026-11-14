@@ -30,6 +30,7 @@ GAP_CELL = 12                 # between columns
 HIT_GAP = 10                  # a cell is clickable this much wider than it is drawn (5 px each side, under PAD_X)
 SMALL_PT = 7.5                # gauge labels, the `mtd` label and the age label
 BAR_W, BAR_H = 28, 5          # the Claude cell's horizontal limit bars, one per row
+PAIR_H, PAIR_GAP = 4, 2       # the wk row with a per-model limit: two bars (all models, then the model, blue)
 FIG_WEIGHT = QFont.Weight.Normal
 BTN_W, CHEV_DEPTH, CHEV_H, CHEV_STROKE = 20, 5, 10, 1.5   # collapse button: hit area, drawn chevron
 BTN_GAP = 12                  # clear space before the button's hit area
@@ -283,7 +284,10 @@ class Strip(QWidget):
                             ("wk", self.limits.seven_day if self.limits else None)):
             used = limmod.view(win_, ts).used          # None: no reading (also before the first fetch)
             lw = small.horizontalAdvance(label)
-            meters.append(dict(label=label, used=used, lw=lw))
+            meters.append(dict(label=label, used=used, lw=lw, model=None))
+        if self.limits and self.limits.models:        # the first per-model weekly limit (Fable) joins the wk row
+            name, w = self.limits.models[0]
+            meters[1]["model"] = (name, limmod.view(w, ts).used)
         label_w = max(m["lw"] for m in meters)
         w = LOGO + GAP_LOGO + label_w + GAP_LABEL + BAR_W
         self._cells.append(Cell("limits", "claude", "", x, w, dim=self.limits_failed, meters=meters,
@@ -448,10 +452,19 @@ class Strip(QWidget):
             p.setFont(small)
             p.setPen(self.ink())
             p.drawText(QPointF(x0, cy + cap_height(small) / 2.0), m["label"])
-            bx = x0 + c.label_w + GAP_LABEL
-            gauge.paint(p, QRectF(gauge.snap(bx, dpr), gauge.snap(cy - BAR_H / 2.0, dpr), BAR_W, BAR_H),
-                        BAR_H / 2.0, m["used"], self.theme, self.ink(), vertical=False,
-                        dim=cell_opacity("figure", dim), dpr=dpr)
+            bx = gauge.snap(x0 + c.label_w + GAP_LABEL, dpr)
+            if m.get("model") is None:
+                gauge.paint(p, QRectF(bx, gauge.snap(cy - BAR_H / 2.0, dpr), BAR_W, BAR_H),
+                            BAR_H / 2.0, m["used"], self.theme, self.ink(), vertical=False,
+                            dim=cell_opacity("figure", dim), dpr=dpr)
+                continue
+            # two thinner bars centred on the row: all models above, the model's own (blue) below
+            top = gauge.snap(cy - PAIR_H - PAIR_GAP / 2.0, dpr)
+            gauge.paint(p, QRectF(bx, top, BAR_W, PAIR_H), PAIR_H / 2.0, m["used"], self.theme, self.ink(),
+                        vertical=False, dim=cell_opacity("figure", dim), dpr=dpr)
+            gauge.paint(p, QRectF(bx, top + PAIR_H + PAIR_GAP, BAR_W, PAIR_H), PAIR_H / 2.0, m["model"][1],
+                        self.theme, self.ink(), vertical=False, dim=cell_opacity("figure", dim), dpr=dpr,
+                        kind="model")
         p.setOpacity(1.0)
 
     def _paint_button(self, p, h):
@@ -497,9 +510,9 @@ class Strip(QWidget):
             if what == "button":
                 QToolTip.showText(ev.globalPos(), "Expand" if self.is_collapsed() else "Collapse", self)
             elif c is not None and c.kind == "limits" and self.limits is not None:
+                ts = self.now_fn().timestamp()
                 QToolTip.showText(ev.globalPos(), fmt.escape_tooltip(fmt.limits_tooltip(
-                    [("5-hour limit", limmod.view(self.limits.five_hour, self.now_fn().timestamp())),
-                     ("Weekly limit", limmod.view(self.limits.seven_day, self.now_fn().timestamp()))],
+                    [(cap, limmod.view(w, ts)) for cap, w, _ in limmod.windows(self.limits)],
                     self.limits.updated, self.now_fn(), self.tz)), self)
             elif c is not None and c.kind == "provider" and self.feed is not None:
                 QToolTip.showText(ev.globalPos(), fmt.tooltip_html(c.provider), self)

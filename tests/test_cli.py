@@ -5,7 +5,7 @@ from fumes import __main__ as m
 from fumes import config as cfgmod
 from fumes.collect.ledger import Ledger
 from fumes.keystore import MemoryStore
-from test_collect import ALL, routes
+from test_collect import ALL, NOW, routes
 
 SECRET = "sk-VERYSECRETVALUE"
 
@@ -17,6 +17,7 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(cfgmod, "config_dir", lambda: tmp_path)
     monkeypatch.setattr(m, "make_store", lambda: store)
     monkeypatch.setattr(m, "make_http", lambda: http)
+    monkeypatch.setattr(m, "_now", lambda: NOW)       # the fake routes' "today": never the real clock
     return store, http, tmp_path
 
 

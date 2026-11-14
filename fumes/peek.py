@@ -392,12 +392,10 @@ class Peek(QWidget):
         self._paint_links(p, L, ink, ink2)
 
     # ---- the Claude limits layout ---------------------------------------------------
-    BLOCKS = (("5-hour limit", "five_hour"), ("Weekly limit", "seven_day"))
-
     def _limits_views(self):
+        """[(caption, View, kind)]: the plan's two windows, then any per-model weekly ones (blue)."""
         lim, now = self.strip.limits, self.strip.now_fn()
-        return [(cap, limmod.view(getattr(lim, attr, None) if lim else None, now.timestamp()))
-                for cap, attr in self.BLOCKS]
+        return [(cap, limmod.view(w, now.timestamp()), kind) for cap, w, kind in limmod.windows(lim)]
 
     def _build_limits(self):
         L = {}
@@ -408,10 +406,10 @@ class Peek(QWidget):
         L["header"] = QRectF(PAD, y, INNER, LOGO)
         y += LOGO + 16
         L["blocks"] = []
-        for cap, v in self._limits_views():
+        for cap, v, kind in self._limits_views():
             hot = limmod.is_hot(v.used)       # at 90 % or more the reset time is the answer: body size, primary ink
             line_h = body_h if hot else cap_h
-            row = dict(cap=cap, v=v, y=y, bar_y=y + body_h + 6, hot=hot, line_h=line_h,
+            row = dict(cap=cap, v=v, kind=kind, y=y, bar_y=y + body_h + 6, hot=hot, line_h=line_h,
                        line_y=y + body_h + 6 + LIMITS_BAR_H + 6, line=fmt.reset_line(v, now, tz))
             L["blocks"].append(row)
             y = row["line_y"] + line_h + 16
@@ -465,7 +463,8 @@ class Peek(QWidget):
             self._text(p, PAD + INNER / 2, b["y"], INNER / 2, body_h, used, self._font(BODY_PX, QFont.Weight.Bold), ink,
                        align=Qt.AlignmentFlag.AlignRight)
             track = QRectF(PAD, b["bar_y"], INNER, LIMITS_BAR_H)
-            gauge.paint(p, track, LIMITS_BAR_H / 2, v.used, self.theme, ink, vertical=False, dpr=dpr)
+            gauge.paint(p, track, LIMITS_BAR_H / 2, v.used, self.theme, ink, vertical=False, dpr=dpr,
+                        kind=b.get("kind", "all"))
             self._text(p, PAD, b["line_y"], INNER, b["line_h"], b["line"],
                        self._font(BODY_PX if b["hot"] else CAPTION_PX), ink if b["hot"] else ink2,
                        elide=Qt.TextElideMode.ElideRight)
