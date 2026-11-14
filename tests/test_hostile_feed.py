@@ -166,3 +166,16 @@ print("still alive")
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen", PYTHONPATH=str(HERE.parent))
     got = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=60)
     assert got.returncode == 0 and "still alive" in got.stdout and "boom" in got.stderr
+
+
+def test_feed_redirects_only_to_http_or_https():
+    from urllib.request import Request
+    h = feedmod._WebOnlyRedirect()
+    req = Request("http://feed.example/a")
+    for bad in ("ftp://evil/x", "file:///etc/passwd", "gopher://x"):
+        assert h.redirect_request(req, None, 302, "Found", {}, bad) is None
+    assert h.redirect_request(req, None, 302, "Found", {}, "https://feed.example/b").full_url == "https://feed.example/b"
+
+
+def test_the_feed_opener_uses_the_web_only_redirect_handler():
+    assert any(isinstance(h, feedmod._WebOnlyRedirect) for h in feedmod._OPENER.handlers)

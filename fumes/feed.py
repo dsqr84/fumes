@@ -217,13 +217,25 @@ def select(feed: Feed, wanted=None):
     return [p for p in pool if not is_hidden(p)]
 
 
+class _WebOnlyRedirect(urllib.request.HTTPRedirectHandler):
+    """Follow a redirect only to another http(s) URL: urllib would also follow ftp://."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not str(newurl).lower().startswith(("http://", "https://")):
+            return None
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_OPENER = urllib.request.build_opener(_WebOnlyRedirect())
+
+
 def fetch_raw(url, timeout=10):
     """GET and decode JSON. Returns the decoded object; raises FeedError."""
     if not isinstance(url, str) or not url.lower().startswith(("http://", "https://")):
         raise FeedError("fetch failed: only http and https feeds are read")
     req = urllib.request.Request(url, headers={"User-Agent": "fumes"})
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with _OPENER.open(req, timeout=timeout) as r:
             from .collect.http import DEADLINE, _read_until
             data = _read_until(r, MAX_BYTES + 1, time.monotonic() + DEADLINE)
     except Exception as e:  # URLError, HTTPError, timeout, ValueError, OSError
