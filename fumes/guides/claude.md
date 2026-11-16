@@ -1,31 +1,31 @@
 # Claude subscription limits
 
 The leftmost cell shows how much of your Claude Pro or Max plan's **5-hour** and **weekly** usage
-windows you have used. Claude Code reports these to its status line, so Fumes includes a small status
-line script that saves each reading where Fumes can see it.
+windows you have used, with a blue bar for a per-model weekly limit (for example Fable) when your plan
+has one.
 
-## Set it up
+## Nothing to set up
 
-1. Make sure you use [Claude Code](https://claude.com/claude-code) with your Claude subscription
-   (signed in with `/login`, not an API key).
-2. Add the status line to your Claude Code settings (`%USERPROFILE%\.claude\settings.json`). Settings
-   shows the exact line for your machine, with a **Copy** button.
-3. Start a Claude Code session. The cell fills in after Claude Code's first answer, and updates while
-   a session is active.
-
-The readings stay on your computer: the script writes one small file in the Fumes folder and sends
-nothing anywhere.
-
-## Fumes also asks Claude Code itself
-
-When the Claude Code program is installed on this computer, Fumes starts it in the background every
-five minutes with the `/usage` command and records the answer. That is a local command: it makes no
-model call, costs nothing and leaves no session behind. It is what provides the blue per-model bar
-(for example Fable), and it corrects the bars when a limit is reset early. It works without the status
-line, so the set-up above is optional; with both, the bars also move after each answer.
+Use [Claude Code](https://claude.com/claude-code) with your Claude subscription (signed in with
+`/login`, not an API key). When the Claude Code program is installed on this computer, Fumes starts it
+in the background every five minutes with the `/usage` command and records the answer. That is a local
+command: it makes no model call, costs nothing and leaves no session behind. The readings stay on your
+computer.
 
 On Windows this needs Claude Code's own installer (`claude.exe`); the npm version is not started. To
 turn it off, set `limits_poll_minutes = 0` in `config.toml`.
+
+## Optional: a reading after every answer
+
+Fumes also includes a small status line script. With it, the bars move after each Claude Code answer
+instead of every five minutes. Settings shows the exact line for your machine, with a **Copy** button,
+to add to your Claude Code settings (`%USERPROFILE%\.claude\settings.json`).
+
+**If you already have a status line, keep it.** Claude Code has one status line, so adding Fumes's
+replaces yours, and you do not need it: the bars work without it. Settings hides the line when it sees
+you have your own.
+
+The script writes one small file in the Fumes folder and sends nothing anywhere.
 
 ## Claude Code on another computer
 

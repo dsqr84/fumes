@@ -638,7 +638,13 @@ class ProviderPage(Page):
 
 
 class ClaudePage(Page):
-    NOTE = "If you already have a status line, this replaces it."
+    NOTE = "Optional: it adds a reading after each answer. Paste it into Claude Code's settings.json."
+    KEEP_YOURS = ("You already have your own status line in Claude Code. Keep it: a status line setting "
+                  "replaces the one before it, and Fumes does not need one.")
+    KEEP_YOURS_NO_POLL = ("You already have your own status line in Claude Code, and Fumes will not ask you to "
+                          "replace it. The Claude Code program was not found on this computer, so Fumes "
+                          "cannot ask it for the limits either: enter an address above, or install Claude Code "
+                          "with its own installer.")
     URL_HINT = ("Leave the address empty when Claude Code runs on this computer. If it runs on another one "
                 "that publishes its limits file, enter that file's address here.")
 
@@ -774,14 +780,24 @@ class ClaudePage(Page):
             self.url.setCursorPosition(0)     # show the start of a long address, not its end
         for wdg in (self.guide, self.snippet, self.copy, self.copy_msg, self.note, self.last):
             wdg.setVisible(not url)       # the status line set-up is for this computer's own readings
+        own = not url and self.w.statusline_state() == "other"
+        if not url:                       # the user's own status line: never offer to replace it
+            for wdg in (self.snippet, self.copy, self.copy_msg):
+                wdg.setVisible(not own)
+            polled = getattr(self.w.cfg, "limits_poll_minutes", 0) > 0 and self.w.claude_found()
+            self.note.setText((self.KEEP_YOURS if polled else self.KEEP_YOURS_NO_POLL) if own else self.NOTE)
         self.tail.setVisible(bool(url))
         if url:
             self.source.setText(f"Reading the limits from an address: {url}")
             return
         mins = getattr(self.w.cfg, "limits_poll_minutes", 0) if self.w.cfg is not None else 0
+        state = self.w.statusline_state()
         if mins > 0 and self.w.claude_found():
             self.source.setText(f"Reading the limits from Claude Code on this computer: Fumes asks it every "
-                                f"{mins:g} minutes, and the status line below adds readings while you work.")
+                                f"{mins:g} minutes." + (" Its status line, if you add it, gives a reading after "
+                                                        "each answer too." if state == "missing" else
+                                                        " Fumes's status line adds a reading after each answer."
+                                                        if state == "configured" else ""))
         else:
             self.source.setText("Reading the limits from this computer's Claude Code status line."
                                 + ("" if mins <= 0 else " Claude Code itself was not found here, so the "
@@ -1019,6 +1035,10 @@ class SettingsWindow(QWidget):
         box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         box.setDefaultButton(QMessageBox.StandardButton.No)
         return box.exec() == QMessageBox.StandardButton.Yes
+
+    def statusline_state(self):
+        """'configured' | 'other' | 'missing': what Claude Code's settings hold as its status line."""
+        return diagnose.statusline_state()
 
     def claude_found(self):
         """Is the Claude Code program on this computer (so the limits can be asked for directly)?"""

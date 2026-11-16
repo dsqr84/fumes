@@ -64,3 +64,10 @@ def no_real_claude(monkeypatch):
     hands it a program."""
     from fumes import usagepoll
     monkeypatch.setattr(usagepoll, "find_claude", lambda *a, **k: None)
+
+
+@pytest.fixture(autouse=True)
+def no_real_claude_settings(monkeypatch, tmp_path):
+    """Tests never read this machine's ~/.claude/settings.json (it may hold a status line of its own)."""
+    from fumes import diagnose
+    monkeypatch.setattr(diagnose, "claude_settings_path", lambda: tmp_path / "no-claude" / "settings.json")

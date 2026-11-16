@@ -75,8 +75,9 @@ def statusline_state(settings_path=None):
     if not isinstance(sl, dict) or not sl:
         return "missing"
     cmd = sl.get("command")
-    if isinstance(cmd, str) and "fumes.statusline" in cmd:
-        return "configured"
+    if isinstance(cmd, str) and ("fumes.statusline" in cmd                       # python -m fumes.statusline
+                                 or ("fumes-cli" in cmd.lower() and cmd.rstrip().endswith("statusline"))):
+        return "configured"                                                       # fumes-cli.exe statusline
     return "other"
 
 
@@ -262,14 +263,20 @@ def run_doctor(folder, store, now, settings_path=None, config_warnings=None, con
         msg += f"; last reading {_age(rd['updated'], now)}" if rd else \
             "; no reading yet (it appears after your next Claude Code answer)"
         add("claude-limits", "ok", msg)
-    elif sl == "other":
-        snip = snippet()
-        add("claude-limits", "fix", "Claude Code already has a different status line. Fumes's, below, would "
-            "replace it: decide first, and keep the other settings in the file")
+    elif sl == "other":       # the user's own status line: never advise replacing it
+        from . import usagepoll
+        if usagepoll.find_claude():
+            add("claude-limits", "ok", "Claude Code has your own status line, and Fumes leaves it alone: it gets "
+                "the limits by asking Claude Code itself (claude -p /usage)")
+        else:
+            add("claude-limits", "info", "Claude Code has your own status line, and Fumes leaves it alone. The "
+                "Claude Code program was not found here, so Fumes cannot ask it for the limits either: the "
+                "limits cell stays empty unless you set limits_url")
     else:
         snip = snippet()
-        add("claude-limits", "info", "Claude Code's status line is not set up for Fumes. Add this to "
-            "~/.claude/settings.json (keep the other settings):" if snip else
+        add("claude-limits", "info", "Claude Code's status line is not set up for Fumes. It is optional: it adds a "
+            "reading after each answer. To use it, add this to ~/.claude/settings.json (keep the other "
+            "settings):" if snip else
             "Claude Code's status line is not set up for Fumes, and no command can be built for this folder")
 
     add("autostart", "ok" if win.autostart_enabled() else "info",

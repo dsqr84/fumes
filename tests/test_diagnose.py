@@ -226,7 +226,7 @@ def test_doctor_bad_providers_json_entry(env, capsys):
     assert code == 1
 
 
-def test_doctor_statusline_states(env, capsys):
+def test_doctor_statusline_states(env, capsys, monkeypatch):
     s = env.home / "settings.json"
     code, c, doc = checks(capsys)
     assert c["claude-limits"]["state"] == "info" and doc["snippet"]["statusLine"]["type"] == "command"
@@ -237,8 +237,12 @@ def test_doctor_statusline_states(env, capsys):
     assert json.loads(block) == doc["snippet"]
     s.write_text(json.dumps({"statusLine": {"type": "command", "command": "other-tool"}}))
     _, c, doc = checks(capsys)
-    assert c["claude-limits"]["state"] == "fix" and "replace" in c["claude-limits"]["message"]
-    assert doc["snippet"]["statusLine"]["type"] == "command"     # shown, so the user can decide whether to replace theirs
+    assert c["claude-limits"]["state"] == "info" and "leaves it alone" in c["claude-limits"]["message"]
+    assert doc["snippet"] is None and code == 0                  # the user's own status line: never offer to replace it
+    monkeypatch.setattr("fumes.usagepoll.find_claude", lambda *a, **k: "/opt/claude")
+    _, c, doc = checks(capsys)
+    assert c["claude-limits"]["state"] == "ok" and "asking Claude Code" in c["claude-limits"]["message"]
+    assert doc["snippet"] is None
     s.write_text(json.dumps({"statusLine": {"type": "command", "command": "py -m fumes.statusline"}}))
     (env.cfg / statusline.FILE).write_text(json.dumps({
         "updated": "2026-11-13T09:00:00Z", "five_hour": {"used_percentage": 5, "resets_at": 1900000000}}))
@@ -253,7 +257,9 @@ def test_statusline_state_reads_untrusted_json(tmp_path):
     for body, want in [('{"statusLine": "str"}', "missing"), ("[1]", "missing"), ('{"statusLine": {}}', "missing"),
                        ('{"statusLine": {"command": 5}}', "other"),
                        ('{"statusLine": {"command": "my-fumes-tool --x"}}', "other"),
-                       ('{"statusLine": {"command": "py -m fumes.statusline"}}', "configured"), ('{"x": 1}', "missing")]:
+                       ('{"statusLine": {"command": "py -m fumes.statusline"}}', "configured"),
+                       ('{"statusLine": {"command": "\\"C:\\\\Apps\\\\Fumes\\\\fumes-cli.exe\\" statusline"}}', "configured"),
+                       ('{"statusLine": {"command": "fumes-cli-helper --other"}}', "other"), ('{"x": 1}', "missing")]:
         p.write_text(body)
         assert diagnose.statusline_state(p) == want
     assert diagnose.statusline_state(tmp_path / "absent.json") == "missing"

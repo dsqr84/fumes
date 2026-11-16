@@ -297,7 +297,7 @@ def test_claude_snippet_is_valid_json(env):
     assert doc["statusLine"]["type"] == "command"
     assert "fumes.statusline" in doc["statusLine"]["command"]
     assert p.snippet.isReadOnly()
-    assert "replaces it" in " ".join(texts(env))
+    assert "Optional" in " ".join(texts(env))
 
 
 def test_claude_copy(env):
@@ -421,4 +421,23 @@ def test_the_real_confirmation_box_shows_text_never_html(qapp, tmp_path, monkeyp
                                 cfg=Config(), opener=lambda u: True)
     assert w.confirm('Remove <img src="file://evil/s/i">?') is False
     assert seen["format"] == Qt.TextFormat.PlainText and "<img" in seen["text"]
+    w.close()
+
+
+def test_your_own_status_line_is_never_offered_for_replacement(qapp, tmp_path, monkeypatch):
+    own = tmp_path / "settings.json"
+    own.write_text(json.dumps({"statusLine": {"type": "command", "command": "my-own-line"}}), "utf-8")
+    monkeypatch.setattr(settings.diagnose, "claude_settings_path", lambda: own)
+    w = settings.SettingsWindow(keystore.MemoryStore(), collect.Ledger(tmp_path / "l.json"), folder=tmp_path,
+                                cfg=Config())
+    p = w.pages["claude"]
+    assert p.snippet.isHidden() and p.copy.isHidden()
+    assert "Keep it" not in p.note.text() and "will not ask you to replace it" in p.note.text()   # no claude here
+    monkeypatch.setattr("fumes.usagepoll.find_claude", lambda *a, **k: "/opt/claude")
+    w._claude_found = None
+    p.refresh()
+    assert "Keep it" in p.note.text() and p.snippet.isHidden()
+    own.write_text("{}", "utf-8")                                  # no status line: the optional line is offered
+    p.refresh()
+    assert not p.snippet.isHidden() and p.note.text().startswith("Optional")
     w.close()
