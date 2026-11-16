@@ -15,3 +15,10 @@ line script that saves each reading where Fumes can see it.
 
 The readings stay on your computer: the script writes one small file in the Fumes folder and sends
 nothing anywhere.
+
+## Claude Code on another computer
+
+If Claude Code runs on a different computer, the status line there writes the readings there. Publish
+that computer's `claude-limits.json` somewhere this one can reach, and enter its address in the box
+at the top of this page. Fumes then reads the limits from that address and ignores this computer's
+status line. **Use this computer** switches back.

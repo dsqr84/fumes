@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (QCheckBox, QComboBox, QDialog, QFileDialog, QFormLa
                              QStackedWidget, QTextBrowser, QPlainTextEdit, QVBoxLayout, QWidget)
 
 from . import collect, diagnose, fonts, keycheck, keystore, links, logos, statusline, win
+from . import config as cfgmod
 from . import __version__
 from .collect import custom as customlib
 
@@ -638,6 +639,8 @@ class ProviderPage(Page):
 
 class ClaudePage(Page):
     NOTE = "If you already have a status line, this replaces it."
+    URL_HINT = ("Leave the address empty when Claude Code runs on this computer. If it runs on another one "
+                "that publishes its limits file, enter that file's address here.")
 
     def __init__(self, win_):
         super().__init__()
@@ -651,6 +654,29 @@ class ClaudePage(Page):
         head.addWidget(logo)
         head.addWidget(self.label("Claude limits", "title", wrap=False), 1)
         lay.addLayout(head)
+
+        # Where the limits come from: this computer's status line, or an address another computer publishes.
+        self.source = self.label("", "msg")
+        lay.addWidget(self.source)
+        self.url = QLineEdit()
+        self.url.setObjectName("limits_url")
+        self.url.setPlaceholderText("http://other-computer:8017/claude-limits.json")
+        self.url.setMaxLength(cfgmod.MAX_URL)
+        self.url_save = QPushButton("Use this address")
+        self.url_clear = QPushButton("Use this computer")
+        row = QHBoxLayout()
+        row.addWidget(self.url, 1)
+        row.addWidget(self.url_save)
+        row.addWidget(self.url_clear)
+        lay.addLayout(row)
+        self.url_msg = self.label("", "msg")
+        self.url_msg.setVisible(False)
+        lay.addWidget(self.url_msg)
+        lay.addWidget(self.label(self.URL_HINT, "hint"))
+        self.url_save.clicked.connect(self.do_save_url)
+        self.url.returnPressed.connect(self.do_save_url)
+        self.url_clear.clicked.connect(self.do_clear_url)
+
         self.guide = SafeBrowser(win_.open_link, link=win_.colors['link'])
         self.guide.setMarkdown(load_guide("claude"))
         lay.addWidget(self.guide, 1)
@@ -672,7 +698,10 @@ class ClaudePage(Page):
         row.addWidget(self.copy)
         row.addWidget(self.copy_msg, 1)
         lay.addLayout(row)
-        lay.addWidget(self.label(self.NOTE, "hint"))
+        self.note = self.label(self.NOTE, "hint")
+        lay.addWidget(self.note)
+        self.tail = QWidget()             # takes the guide's place when an address is in use
+        lay.addWidget(self.tail, 1)
         self.last = self.label("", "msg")
         lay.addWidget(self.last)
         self.copy.clicked.connect(self.do_copy)
@@ -698,7 +727,58 @@ class ClaudePage(Page):
         except (OSError, ValueError):
             return None
 
+    def _url(self):
+        return (getattr(self.w.cfg, "limits_url", "") or "") if self.w.cfg is not None else ""
+
+    def _say(self, text, bad=False):
+        self.url_msg.setText(text)
+        self.url_msg.setVisible(bool(text))
+        self.url_msg.setProperty("bad", bad)
+        self.url_msg.style().unpolish(self.url_msg)
+        self.url_msg.style().polish(self.url_msg)
+
+    def _set_url(self, value, done):
+        try:
+            self.w.set_limits_url(value)
+        except cfgmod.ConfigError as e:
+            self._say(str(e), bad=True)
+            return
+        self.url.setModified(False)
+        self._say(done)
+        self.refresh()
+
+    def do_save_url(self):
+        value = self.url.text().strip()
+        if not value:
+            self.do_clear_url()
+            return
+        if not cfgmod.valid_remote_url(value):
+            self._say("That is not an address Fumes can read. It must start with http:// or https:// and "
+                      "have no spaces or quotes.", bad=True)
+            return
+        self._set_url(value, "Saved. The bars follow this address from now on.")
+
+    def do_clear_url(self):
+        had = bool(self._url())
+        self.url.setText("")
+        self._set_url("", "Saved. The bars follow this computer's status line." if had else "")
+
     def refresh(self):
+        url = self._url()
+        can_save = self.w.config_path is not None
+        for b in (self.url, self.url_save):
+            b.setEnabled(can_save)
+        self.url_clear.setEnabled(can_save and bool(url))
+        if not self.url.hasFocus() and not self.url.isModified():
+            self.url.setText(url)
+            self.url.setCursorPosition(0)     # show the start of a long address, not its end
+        for wdg in (self.guide, self.snippet, self.copy, self.copy_msg, self.note, self.last):
+            wdg.setVisible(not url)       # the status line set-up is for this computer's own readings
+        self.tail.setVisible(bool(url))
+        if url:
+            self.source.setText(f"Reading the limits from an address: {url}")
+            return
+        self.source.setText("Reading the limits from this computer's Claude Code status line.")
         upd = self.last_reading()
         self.last.setText(f"Last reading: {upd}" if upd else "No reading yet")
 
@@ -765,11 +845,14 @@ class GeneralPage(Page):
 
 class SettingsWindow(QWidget):
     def __init__(self, store, ledger, http=None, folder=None, cfg=None, autostart_action=None,
-                 on_refresh=None, theme="dark", opener=None, confirm=None, dpr=None):
+                 on_refresh=None, theme="dark", opener=None, confirm=None, dpr=None, config_path=None,
+                 on_limits_source=None):
         super().__init__()
         self.store, self.ledger, self.http = store, ledger, http
         self.folder = Path(folder) if folder else Path(tempfile.gettempdir())
         self.cfg, self.autostart_action, self.on_refresh = cfg, autostart_action, on_refresh
+        self.config_path = Path(config_path) if config_path else None     # None: Settings cannot change config.toml
+        self.on_limits_source = on_limits_source
         self.theme = theme if theme in ("dark", "light") else "dark"
         self.colors = DARK if self.theme == "dark" else LIGHT
         self._opener, self._confirm, self.dpr = opener, confirm, dpr
@@ -928,6 +1011,18 @@ class SettingsWindow(QWidget):
         box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         box.setDefaultButton(QMessageBox.StandardButton.No)
         return box.exec() == QMessageBox.StandardButton.Yes
+
+    def set_limits_url(self, url):
+        """Save the Claude limits address ("" = this computer) to config.toml and apply it now.
+        Raises config.ConfigError, with nothing changed."""
+        if self.config_path is None or self.cfg is None:
+            raise cfgmod.ConfigError("This window cannot change config.toml.")
+        if url and not cfgmod.valid_remote_url(url):
+            raise cfgmod.ConfigError("That is not an address Fumes can read.")
+        cfgmod.save_setting(self.config_path, "limits_url", url or None)
+        self.cfg.limits_url = url
+        if self.on_limits_source:
+            self.on_limits_source()
 
     def refresh_app(self):
         if self.on_refresh:

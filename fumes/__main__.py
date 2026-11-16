@@ -220,7 +220,8 @@ def main(argv=None):
             if args.settings in ("custom-manual", "custom-command", "add-provider"):
                 _demo_providers(Path(tmp))
             w = SettingsWindow(keystore.MemoryStore(), collect.Ledger(Path(tmp) / "ledger.json"), folder=Path(tmp),
-                               cfg=cfg, theme=args.theme or "dark", dpr=args.dpr)
+                               cfg=cfg, theme=args.theme or "dark", dpr=args.dpr,
+                               config_path=Path(tmp) / "config.toml")
             if args.settings not in w.ids and args.settings not in ("custom-manual", "custom-command", "add-provider"):
                 print(f"fumes: no settings page {args.settings!r}", file=sys.stderr)
                 return 1
@@ -282,7 +283,7 @@ def main(argv=None):
     from . import single
     guard = single.take_over()  # noqa: F841 (before State.load: the old copy saves as it quits)
     state = cfgmod.State.load(folder / "state.json")
-    keep = ui.App(cfg, state, user_logo_dir=folder)  # noqa: F841 (keeps references alive)
+    keep = ui.App(cfg, state, user_logo_dir=folder, config_path=cfg_path)  # noqa: F841 (keeps references alive)
     return app.exec()
 
 

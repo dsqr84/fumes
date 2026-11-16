@@ -781,9 +781,11 @@ def build_menu(app):
 class App:
     """Owns the strip, tray, timers and the fetch thread."""
 
-    def __init__(self, cfg: Config, state: State, user_logo_dir=None, store=None, ledger=None, http=None):
+    def __init__(self, cfg: Config, state: State, user_logo_dir=None, store=None, ledger=None, http=None,
+                 config_path=None):
         self.cfg, self.state = cfg, state
         self.folder = Path(user_logo_dir or cfgmod.config_dir())
+        self.config_path = Path(config_path) if config_path else self.folder / "config.toml"
         # used only when cfg.url is empty (local collection); injectable for tests
         self.store = store if store is not None else keystore.default_store()
         self.ledger = ledger if ledger is not None else collect.Ledger.load(self.folder / "ledger.json")
@@ -848,7 +850,8 @@ class App:
         if getattr(self, "settings_window", None) is None:
             self.settings_window = SettingsWindow(
                 self.store, self.ledger, http=self.http, folder=self.folder, cfg=self.cfg,
-                autostart_action=self.autostart, on_refresh=self.refresh_all, theme=self.strip.theme)
+                autostart_action=self.autostart, on_refresh=self.refresh_all, theme=self.strip.theme,
+                config_path=self.config_path, on_limits_source=self.limits_source_changed)
         w = self.settings_window
         if page:
             w.show_page(page)
@@ -937,9 +940,20 @@ class App:
             return
         if self.limits_thread is not None and self.limits_thread.isRunning():
             return
-        self.limits_thread = LimitsThread(self.cfg.limits_url)
-        self.limits_thread.done.connect(self._limits_fetched)
+        url = self.cfg.limits_url
+        self.limits_thread = LimitsThread(url)
+        self.limits_thread.done.connect(                 # an answer for an address no longer in use is dropped
+            lambda lim, raw, err, url=url: self._limits_fetched(lim, raw, err) if url == self.cfg.limits_url else None)
         self.limits_thread.start()
+
+    def limits_source_changed(self):
+        """Settings changed cfg.limits_url: drop the other source's reading and read the new one now."""
+        old = self.limits_thread
+        if old is not None and old.isRunning():       # a fetch in flight is for the old source: let it
+            self._parked = [t for t in getattr(self, "_parked", []) if t.isRunning()] + [old]   # finish, unheard
+        self.limits_thread = None
+        self.strip.set_limits(None, failed=False)
+        self.refresh_limits()
 
     LOCAL_LIMITS_MAX = 64 * 1024
 

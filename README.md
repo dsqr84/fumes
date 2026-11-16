@@ -109,7 +109,8 @@ Settings live in `%APPDATA%\fumes\config.toml`; every key is optional (see
 good readings are kept in `state.json` in the same folder.
 
 - `url`, `limits_url`: an optional remote feed and Claude limits document, used instead of the
-  built-in collectors and the local status-line file when set.
+  built-in collectors and the local status-line file when set. `limits_url` can also be set in
+  Settings, Claude limits; Settings changes only that one line of the file.
 - `providers`: which providers to show, in order.
 - `anchor`: `tray` (default, left of the notification area), `left` or `right`.
 - `theme`: `auto` (follows Windows), `dark` or `light`.

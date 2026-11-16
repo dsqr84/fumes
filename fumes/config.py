@@ -119,6 +119,82 @@ def parse_config(data):
     return cfg, warnings
 
 
+class ConfigError(Exception):
+    """config.toml could not be changed. The message is for the user; the file is as it was."""
+
+
+MAX_URL = 2048
+_TOP_KEY = r"^[ \t]*{}[ \t]*="
+
+
+def valid_remote_url(v):
+    """An address Fumes may fetch: http or https, printable, no spaces or quotes, of a sane length."""
+    return is_web_url(v) and len(v) <= MAX_URL and not any(c in v for c in ' "\'\\<>`')
+
+
+def set_top_level(text, key, value):
+    """`text` (a config.toml) with the top-level string `key` set to `value`, or removed when value is
+    None. Only that one line changes: comments, order and the other keys are kept. Top level ends at the
+    first [table] header, so a new key goes just before it."""
+    import re
+    nl = "\r\n" if "\r\n" in text else "\n"
+    lines = text.split(nl)
+    end = next((i for i, ln in enumerate(lines) if ln.lstrip().startswith("[")), len(lines))
+    pat = re.compile(_TOP_KEY.format(re.escape(key)))
+    hits = [i for i in range(end) if pat.match(lines[i])]
+    new = None if value is None else f"{key} = {json.dumps(value, ensure_ascii=False)}"
+    if hits:
+        lines[hits[0]:hits[0] + 1] = [] if new is None else [new]
+    elif new is not None:
+        at = end
+        while at > 0 and not lines[at - 1].strip():
+            at -= 1                                   # above the blank lines that precede the first table
+        lines[at:at] = [new]
+    out = nl.join(lines)
+    return out if out.endswith(nl) or not out else out + nl
+
+
+def save_setting(path, key, value):
+    """Set (or with None, remove) one top-level string key in config.toml, creating the file if needed.
+    The result is parsed before it is written and must differ from the old file in that key only; if the
+    file has an error already, or the edit would change anything else, nothing is written. Raises
+    ConfigError."""
+    path = Path(path)
+    try:
+        old_text = path.read_text("utf-8") if path.is_file() else ""
+    except (OSError, UnicodeDecodeError) as e:
+        raise ConfigError(f"Cannot read {path.name}: {type(e).__name__}.") from e
+    try:
+        old = tomllib.loads(old_text)
+    except tomllib.TOMLDecodeError as e:
+        raise ConfigError(f"{path.name} has an error, so it was left alone. Fix it by hand first.") from e
+    new_text = set_top_level(old_text, key, value)
+    want = {k: v for k, v in old.items() if k != key}
+    if value is not None:
+        want[key] = value
+    try:
+        got = tomllib.loads(new_text)
+    except tomllib.TOMLDecodeError:
+        got = None
+    if got != want:
+        raise ConfigError(f"Could not change {key} in {path.name} safely. Edit the file by hand.")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".config.", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:
+                f.write(new_text)
+            os.replace(tmp, path)
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
+    except OSError as e:
+        raise ConfigError(f"Cannot write {path.name}: {type(e).__name__}.") from e
+
+
 def load_config(path=None, warn=None):
     """Read config.toml. Missing file: defaults. Warnings go to stderr (or warn())."""
     path = Path(path) if path else config_dir() / "config.toml"
