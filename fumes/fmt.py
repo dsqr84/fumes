@@ -30,6 +30,28 @@ def figure(p):
     return DASH, "na"
 
 
+def updated_text(seconds):
+    """'Updated just now', 'Updated 1 minute ago', 'Updated 3 hours ago': the age spelled out."""
+    s = max(0, int(seconds))
+    if s < 60:
+        return "Updated just now"
+    for unit, size in (("day", 86400), ("hour", 3600), ("minute", 60)):
+        if s >= size:
+            n = s // size
+            return f"Updated {n} {unit}{'' if n == 1 else 's'} ago"
+
+
+def tray_tip(balances, age_seconds, failed=False):
+    """The tray icon's hover text, three short lines. `balances` are the providers' balances that are known."""
+    if balances:
+        n = len(balances)
+        first = f"{money(sum(balances))} left across {n} providers" if n > 1 else f"{money(balances[0])} left"
+    else:
+        first = "No balances to show"
+    last = "Could not update: showing the last reading" if failed else updated_text(age_seconds)
+    return f"Fumes\n{first}\n{last}"
+
+
 def age_text(seconds):
     """'12m old', '3h old', '2d old'; under a minute is 'now'."""
     s = max(0, int(seconds))

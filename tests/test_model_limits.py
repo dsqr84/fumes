@@ -1,4 +1,4 @@
-"""Per-model weekly limits (e.g. Fable): parsed as untrusted, drawn as a blue bar under the weekly one."""
+"""Per-model weekly limits (e.g. Fable): parsed as untrusted, drawn as a third, blue bar under the weekly one."""
 import json
 from pathlib import Path
 
@@ -48,15 +48,17 @@ def make(models):
     return s
 
 
-def test_wk_row_gets_a_second_blue_bar(qapp):
+def test_the_model_gets_its_own_third_blue_line(qapp):
     s = make(fable(80.0))
     c = s.cells()[0]
-    assert c.meters[1]["model"] == ("Fable", 80.0) and c.meters[0]["model"] is None
+    assert [m["model"] for m in c.meters] == [None, None, "Fable"]
+    assert c.meters[2]["label"] == "fa" and c.meters[2]["used"] == 80.0
+    assert [s.limit_centre(r, 3) for r in range(3)] == [8, 20, 32]             # three equal lines in the 40 px strip
+    assert [s.limit_centre(r, 2) for r in range(2)] == [s.row_centre(0), s.row_centre(1)]
     _, img = spy_strip(s)
     x = c.x + ui.LOGO + ui.GAP_LOGO + c.label_w + ui.GAP_LABEL + 6          # inside both fills
-    cy = s.row_centre(1)
-    upper = img.pixelColor(int(x), int(cy - ui.PAIR_GAP / 2 - ui.PAIR_H / 2))
-    lower = img.pixelColor(int(x), int(cy + ui.PAIR_GAP / 2 + ui.PAIR_H / 2))
+    upper = img.pixelColor(int(x), int(s.limit_centre(1, 3)))
+    lower = img.pixelColor(int(x), int(s.limit_centre(2, 3)))
     assert lower.blue() > lower.red() + 60                                     # the model bar is blue
     assert upper.green() > upper.blue()                                        # the weekly bar keeps its palette
 

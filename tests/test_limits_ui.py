@@ -82,7 +82,7 @@ def test_claude_cell_geometry_labels_and_gauges(qapp, raw_feed_live, raw_limits)
     c = s.cells()[0]
     m5, mwk = c.meters
     assert c.label_w == max(m5["lw"], mwk["lw"]) and ui.GAP_LABEL == 4
-    assert c.w == ui.LOGO + ui.GAP_LOGO + c.label_w + ui.GAP_LABEL + ui.BAR_W and (ui.BAR_W, ui.BAR_H) == (28, 5)
+    assert c.w == ui.LOGO + ui.GAP_LOGO + c.label_w + ui.GAP_LABEL + ui.BAR_W and (ui.BAR_W, ui.BAR_H) == (40, 8)
 
 
 def test_placeholder_before_first_limits_fetch(qapp, raw_feed):
@@ -509,7 +509,7 @@ def px(img, x, y, dpr=1):
 def bars(s, c):
     """(x left, y centre) of each limit bar of the Claude cell, one per row, at the layout's own coordinates."""
     x = c.x + ui.LOGO + ui.GAP_LOGO + c.label_w + ui.GAP_LABEL
-    return [(x, s.row_centre(r)) for r in range(len(c.meters))]
+    return [(x, s.limit_centre(r, len(c.meters))) for r in range(len(c.meters))]
 
 
 def set_windows(raw_limits, five, week):
@@ -527,7 +527,8 @@ def test_bars_sit_on_their_row_centres(qapp, raw_feed_live, raw_limits):
     bg = 0x20
     for x, cy in bars(s, s.cells()[0]):
         assert px(img, x + ui.BAR_W - 3, cy)[0] > bg                    # the track (or fill) is there
-        assert px(img, x + 6, cy - 4)[0] == bg and px(img, x + 6, cy + 3)[0] == bg   # 5 px tall, centred
+        assert px(img, x + 6, cy - 3)[0] > bg and px(img, x + 6, cy + 3)[0] > bg     # 8 px tall, centred
+        assert px(img, x + 6, cy - 5)[0] == bg and px(img, x + 6, cy + 5)[0] == bg
 
 
 @pytest.mark.parametrize("dpr", [1, 2])

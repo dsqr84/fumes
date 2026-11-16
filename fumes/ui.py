@@ -29,8 +29,8 @@ GAP_LOGO = 4
 GAP_CELL = 12                 # between columns
 HIT_GAP = 10                  # a cell is clickable this much wider than it is drawn (5 px each side, under PAD_X)
 SMALL_PT = 7.5                # gauge labels, the `mtd` label and the age label
-BAR_W, BAR_H = 28, 5          # the Claude cell's horizontal limit bars, one per row
-PAIR_H, PAIR_GAP = 4, 2       # the wk row with a per-model limit: two bars (all models, then the model, blue)
+BAR_W, BAR_H = 40, 8          # the Claude cell's horizontal limit bars: every bar the same size, one per line
+LIMIT_PITCH_3 = 12            # centre to centre of the three lines when a per-model limit (Fable, blue) joins
 FIG_WEIGHT = QFont.Weight.Normal
 BTN_W, CHEV_DEPTH, CHEV_H, CHEV_STROKE = 20, 5, 10, 1.5   # collapse button: hit area, drawn chevron
 BTN_GAP = 12                  # clear space before the button's hit area
@@ -285,9 +285,11 @@ class Strip(QWidget):
             used = limmod.view(win_, ts).used          # None: no reading (also before the first fetch)
             lw = small.horizontalAdvance(label)
             meters.append(dict(label=label, used=used, lw=lw, model=None))
-        if self.limits and self.limits.models:        # the first per-model weekly limit (Fable) joins the wk row
+        if self.limits and self.limits.models:        # the first per-model weekly limit (Fable): a third line
             name, w = self.limits.models[0]
-            meters[1]["model"] = (name, limmod.view(w, ts).used)
+            label = name[:2].lower()
+            meters.append(dict(label=label, used=limmod.view(w, ts).used, lw=small.horizontalAdvance(label),
+                               model=name))
         label_w = max(m["lw"] for m in meters)
         w = LOGO + GAP_LOGO + label_w + GAP_LABEL + BAR_W
         self._cells.append(Cell("limits", "claude", "", x, w, dim=self.limits_failed, meters=meters,
@@ -303,6 +305,11 @@ class Strip(QWidget):
         if r is None:
             return STRIP_H / 2.0
         return STRIP_H / 2.0 + (r - (ROWS - 1) / 2.0) * ROW_PITCH
+
+    @staticmethod
+    def limit_centre(r, n):
+        """Centre y of limit line r of n: two lines sit on the strip's rows, three close up to fit."""
+        return STRIP_H / 2.0 + (r - (n - 1) / 2.0) * (ROW_PITCH if n <= ROWS else LIMIT_PITCH_3)
 
     @classmethod
     def row_top(cls, r):
@@ -440,31 +447,22 @@ class Strip(QWidget):
             p.setOpacity(1.0)
 
     def _paint_limits(self, p, c, dpr, small, base, h):
-        """The Claude cell: the logo, then `label bar` per window, one window per row. Numbers live in the
-        tooltip and the peek."""
+        """The Claude cell: the logo, then `label bar` per window, one window per line (a per-model limit
+        is a third, blue line). Numbers live in the tooltip and the peek."""
         dim = c.dim
         p.setOpacity(cell_opacity("logo", dim))
         p.drawPixmap(QPointF(c.x, gauge.snap((h - LOGO) / 2.0, dpr)), self._logo_pixmap("claude", "Claude", dpr))
         x0 = c.x + LOGO + GAP_LOGO
         for r, m in enumerate(c.meters):
-            cy = self.row_centre(r)
+            cy = self.limit_centre(r, len(c.meters))
             p.setOpacity(cell_opacity("label", dim))
             p.setFont(small)
             p.setPen(self.ink())
             p.drawText(QPointF(x0, cy + cap_height(small) / 2.0), m["label"])
             bx = gauge.snap(x0 + c.label_w + GAP_LABEL, dpr)
-            if m.get("model") is None:
-                gauge.paint(p, QRectF(bx, gauge.snap(cy - BAR_H / 2.0, dpr), BAR_W, BAR_H),
-                            BAR_H / 2.0, m["used"], self.theme, self.ink(), vertical=False,
-                            dim=cell_opacity("figure", dim), dpr=dpr)
-                continue
-            # two thinner bars centred on the row: all models above, the model's own (blue) below
-            top = gauge.snap(cy - PAIR_H - PAIR_GAP / 2.0, dpr)
-            gauge.paint(p, QRectF(bx, top, BAR_W, PAIR_H), PAIR_H / 2.0, m["used"], self.theme, self.ink(),
-                        vertical=False, dim=cell_opacity("figure", dim), dpr=dpr)
-            gauge.paint(p, QRectF(bx, top + PAIR_H + PAIR_GAP, BAR_W, PAIR_H), PAIR_H / 2.0, m["model"][1],
-                        self.theme, self.ink(), vertical=False, dim=cell_opacity("figure", dim), dpr=dpr,
-                        kind="model")
+            gauge.paint(p, QRectF(bx, gauge.snap(cy - BAR_H / 2.0, dpr), BAR_W, BAR_H),
+                        BAR_H / 2.0, m["used"], self.theme, self.ink(), vertical=False,
+                        dim=cell_opacity("figure", dim), dpr=dpr, kind="model" if m["model"] else "all")
         p.setOpacity(1.0)
 
     def _paint_button(self, p, h):
@@ -998,7 +996,5 @@ class App:
         if f is None:
             self.tray.setToolTip("Fumes: no data yet")
             return
-        total = feedmod.total_credit(f.providers)
-        credit = f"{fmt.money(total)} credit" if total is not None else "no balances"
-        age = fmt.age_text(feedmod.age_seconds(f))
-        self.tray.setToolTip(f"Fumes: {credit}, {age}" + (" (offline)" if self.strip.fetch_failed else ""))
+        balances = [p.balance for p in f.providers if p.balance is not None]
+        self.tray.setToolTip(fmt.tray_tip(balances, feedmod.age_seconds(f), self.strip.fetch_failed))

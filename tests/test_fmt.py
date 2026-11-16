@@ -240,3 +240,11 @@ def test_limits_tooltip_carries_the_numbers():
     absent = [("5-hour limit", lim.ABSENT), ("Weekly limit", lim.view(lim.Window(50, 5), ts))]
     t = fmt.limits_tooltip(absent, now, now, est)
     assert "5-hour limit: no reading yet" in t and "Weekly limit: 0% used (reset)" in t
+
+
+def test_tray_tip_reads_as_sentences():
+    assert fmt.tray_tip([100.0, 25.26], 61) == "Fumes\n$125.26 left across 2 providers\nUpdated 1 minute ago"
+    assert fmt.tray_tip([4.5], 5) == "Fumes\n$4.50 left\nUpdated just now"
+    assert fmt.tray_tip([], 7200) == "Fumes\nNo balances to show\nUpdated 2 hours ago"
+    assert fmt.tray_tip([1.0, 2.0], 90000, failed=True).endswith("Could not update: showing the last reading")
+    assert fmt.updated_text(86400 * 3) == "Updated 3 days ago"

@@ -70,7 +70,7 @@ These are durable facts about the code: how the parts fit and what is baked in t
   `fumes/logos/claude.svg` from @lobehub/icons-static-svg 1.102.0 (MIT), fill `#D97757` baked in. Cells are keyed
   `(kind, id)`; the limits cell is `("limits", "claude")`, so a feed provider called `claude` cannot collide
   (`[links] claude` sets the limits cell's Usage link, never a provider's console).
-  **The strip shows no numbers for it**: a label (`5h`, `wk`) and a 28 x 5 px horizontal bar per window, one window per row.
+  **The strip shows no numbers for it**: a label (`5h`, `wk`) and a 40 x 8 px horizontal bar per window, one window per line; a per-model weekly limit (Fable) is a third, blue line (`fa`), and the three lines close up to fit.
   The gradient (`limits.GRADIENT`, per theme) is fixed to the track and the fill only
   reveals it, so the colour is the reading; the fill is drawn as an intersected path, not a clip region (Qt clips are not
   antialiased). Numbers are in the tooltip and the peek. No reading: empty track at 0.10; reset window: 0 at 0.18.
