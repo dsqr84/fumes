@@ -22,7 +22,8 @@ _OWNERS = [
 _KINDS = [
     ("openai", re.compile(r"^sk-(proj|svcacct)-"),
      "This is a project key. OpenAI's costs API needs an Admin key (it starts with sk-admin-)."),
-    ("openai", re.compile(r"^sk-[A-Za-z0-9_-]*T3BlbkFJ"),
+    # every OpenAI key carries the marker, Admin keys included, so the prefixed kinds are excluded here
+    ("openai", re.compile(r"^sk-(?!admin-|proj-|svcacct-)[A-Za-z0-9_-]*T3BlbkFJ"),
      "This is an ordinary OpenAI key. The costs API needs an Admin key (it starts with sk-admin-)."),
     ("anthropic", re.compile(r"^sk-ant-api"),
      "This is a workspace API key. Anthropic's cost report needs an Admin key (it starts with sk-ant-admin)."),

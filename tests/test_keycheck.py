@@ -11,6 +11,7 @@ ANT = "sk-ant-admin01-" + "a" * 40
 ANT_WS = "sk-ant-api03-" + "b" * 40
 OA_ADMIN = "sk-admin-" + "c" * 40
 OA_PROJ = "sk-proj-" + "d" * 40
+OA_ADMIN_REAL = "sk-admin-" + "c" * 20 + "T3BlbkFJ" + "d" * 20   # real Admin keys carry the marker too
 OA_LEGACY = "sk-" + "e" * 20 + "T3BlbkFJ" + "f" * 20
 DS = "sk-" + "0123456789abcdef" * 2
 
@@ -34,6 +35,7 @@ def test_kind_hints():
     assert "Admin key" in keycheck.kind_hint("openai", OA_LEGACY)
     assert "sk-ant-admin" in keycheck.kind_hint("anthropic", ANT_WS)
     assert keycheck.kind_hint("openai", OA_ADMIN) is None and keycheck.kind_hint("anthropic", ANT) is None
+    assert keycheck.kind_hint("openai", OA_ADMIN_REAL) is None and keycheck.owner(OA_ADMIN_REAL) == "openai"
 
 
 def test_collect_never_sends_a_foreign_key(tmp_path):
