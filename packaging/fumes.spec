@@ -6,7 +6,8 @@
 import os
 
 ROOT = os.path.abspath(os.path.join(SPECPATH, ".."))
-DATAS = [(os.path.join(ROOT, "fumes", d), os.path.join("fumes", d)) for d in ("fonts", "logos", "guides")]
+DATAS = [(os.path.join(ROOT, "fumes", d), os.path.join("fumes", d)) for d in ("fonts", "logos", "guides", "icon")]
+ICON = os.path.join(ROOT, "fumes", "icon", "fumes.ico")
 EXCLUDES = ["tkinter", "unittest", "pydoc", "PyQt6.QtWebEngineCore", "PyQt6.QtQml", "PyQt6.QtQuick",
             "PyQt6.QtMultimedia", "PyQt6.QtBluetooth", "PyQt6.QtPdf", "PyQt6.Qt3DCore"]
 
@@ -20,7 +21,7 @@ cli = Analysis([os.path.join(SPECPATH, "fumes_cli.py")], pathex=[ROOT], datas=DA
                excludes=EXCLUDES + ["PyQt6"])
 
 app_exe = EXE(PYZ(app.pure), app.scripts, [], exclude_binaries=True, name="Fumes", console=False,
-              upx=False)
+              upx=False, icon=ICON)
 cli_exe = EXE(PYZ(cli.pure), cli.scripts, [], exclude_binaries=True, name="fumes-cli", console=True,
-              upx=False)
+              upx=False, icon=ICON)
 COLLECT(app_exe, app.binaries, app.datas, cli_exe, cli.binaries, cli.datas, name="Fumes", upx=False)

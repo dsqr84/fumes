@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Fumes</title>
+  <defs>
+    <radialGradient id="plt-bg" cx="50%" cy="54%" r="68%">
+      <stop offset="0%" stop-color="#222226"/>
+      <stop offset="100%" stop-color="#0E0E10"/>
+    </radialGradient>
+    <linearGradient id="plt-bezel" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#52525B"/>
+      <stop offset="50%" stop-color="#34343A"/>
+      <stop offset="100%" stop-color="#232327"/>
+    </linearGradient>
+    <linearGradient id="plt-liq" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FBBF24"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <linearGradient id="plt-surf" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="50%" stop-color="#FDE68A"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+    <radialGradient id="plt-glow" cx="50%" cy="69%" r="24%">
+      <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#plt-bg)"/>
+
+  <!-- Machined diamond bezel with high-contrast edge -->
+  <rect x="148" y="148" width="216" height="216" rx="28" transform="rotate(45 256 256)" fill="url(#plt-bezel)" stroke="#71717A" stroke-width="6"/>
+  <!-- Recessed dark chamber -->
+  <rect x="168" y="168" width="176" height="176" rx="20" transform="rotate(45 256 256)" fill="#0B0B0D" stroke="#52525B" stroke-width="3"/>
+
+  <!-- Subtle internal ambient glow -->
+  <circle cx="256" cy="340" r="80" fill="url(#plt-glow)"/>
+
+  <!-- Subtle etched gauge ticks -->
+  <line x1="296" y1="224" x2="306" y2="224" stroke="#52525B" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="316" y1="256" x2="332" y2="256" stroke="#71717A" stroke-width="3" stroke-linecap="round"/>
+  <line x1="296" y1="288" x2="306" y2="288" stroke="#52525B" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Low amber liquid seated in bottom V -->
+  <path d="M 209.6 334 L 241.9 366.3 A 20 20 0 0 0 270.1 366.3 L 302.4 334 Z" fill="url(#plt-liq)"/>
+  <path d="M 209.6 334 Q 256 329.5 302.4 334 Q 256 338.5 209.6 334 Z" fill="url(#plt-surf)"/>
+  <path d="M 210.5 334 Q 256 338 301.5 334" fill="none" stroke="#FEF3C7" stroke-width="2" stroke-linecap="round" opacity="0.85"/>
+</svg>

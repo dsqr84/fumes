@@ -731,23 +731,22 @@ class CollectThread(QThread):
             self.done.emit(None, None, type(e).__name__)
 
 
+ICON_DIR = Path(__file__).parent / "icon"
+ICON_SMALL_UP_TO = 32      # at these sizes the tile and tick marks are noise: the small cut is the diamond alone
+
+
 def tray_icon():
-    """A $ glyph on a rounded square, drawn in code."""
+    """The Fumes mark for the tray and windows: the small cut up to 32 px, the full tile above."""
     out = QIcon()
-    for size in (16, 24, 32, 48, 64):
+    for size in (16, 20, 24, 32, 48, 64, 128, 256):
+        r = QSvgRenderer(str(ICON_DIR / ("fumes-small.svg" if size <= ICON_SMALL_UP_TO else "fumes.svg")))
+        if not r.isValid():
+            continue
         pm = QPixmap(size, size)
         pm.fill(Qt.GlobalColor.transparent)
         p = QPainter(pm)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor("#2f7d5b"))
-        p.drawRoundedRect(QRectF(0, 0, size, size), size * 0.22, size * 0.22)
-        f = QFont()
-        f.setBold(True)
-        f.setPixelSize(int(size * 0.7))
-        p.setFont(f)
-        p.setPen(QColor("white"))
-        p.drawText(QRectF(0, 0, size, size), Qt.AlignmentFlag.AlignCenter, "$")
+        r.render(p, QRectF(0, 0, size, size))
         p.end()
         out.addPixmap(pm)
     return out

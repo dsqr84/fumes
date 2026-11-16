@@ -209,6 +209,7 @@ def main(argv=None):
     guard.install_excepthook()         # before any widget: an error in a Qt callback must not abort the app
     app = QApplication.instance() or QApplication(sys.argv[:1])
     app.setQuitOnLastWindowClosed(False)
+    app.setWindowIcon(ui.tray_icon())  # Settings, Details and the taskbar entry
 
     if args.once_png and args.settings:
         import tempfile
