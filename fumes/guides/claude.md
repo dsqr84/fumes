@@ -6,14 +6,20 @@ has one.
 
 ## Nothing to set up
 
-Use [Claude Code](https://claude.com/claude-code) with your Claude subscription (signed in with
-`/login`, not an API key). When the Claude Code program is installed on this computer, Fumes starts it
-in the background every five minutes with the `/usage` command and records the answer. That is a local
-command: it makes no model call, costs nothing and leaves no session behind. The readings stay on your
-computer.
+Use [Claude Code](https://claude.com/claude-code) on this computer with your Claude subscription
+(signed in with `/login`, not an API key). Every five minutes Fumes reads the limits one of two ways:
 
-On Windows this needs Claude Code's own installer (`claude.exe`); the npm version is not started. To
-turn it off, set `limits_poll_minutes = 0` in `config.toml`.
+1. **With Claude Code's sign-in.** Fumes reads the sign-in Claude Code keeps on this computer and asks
+   Anthropic for your usage, the same request Claude Code makes for its own `/usage` screen. The
+   sign-in is used for that one request to `api.anthropic.com` and nothing else: Fumes never saves it,
+   changes it, or sends it anywhere else.
+2. **By asking Claude Code.** When the sign-in has expired or cannot be read, Fumes starts Claude Code
+   in the background with the `/usage` command. That is a local command: no model call, no cost, no
+   session left behind. On Windows this needs Claude Code's own installer (`claude.exe`).
+
+Neither is an official, documented interface, so either could stop working after a Claude Code update;
+the bars then keep their last reading. In `config.toml`, `limits_use_signin = false` turns the first way
+off, and `limits_poll_minutes = 0` turns both off.
 
 ## Claude Code on another computer
 

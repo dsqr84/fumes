@@ -34,6 +34,11 @@ These are durable facts about the code: how the parts fit and what is baked in t
   have no balance API; `day_spend` keeps today's spend from being subtracted twice, since costs come per whole day)
   and balance samples (DeepSeek has no usage API: spend is the falls between readings, rises are top-ups).
   Loaded as untrusted; replaced atomically.
+- **Claude limits, direct** (`usagepoll.direct`, `signin_token`): the first way `usagepoll.poll` tries. One GET of
+  `https://api.anthropic.com/api/oauth/usage` (the endpoint Claude Code's own `/usage` uses; undocumented) with the
+  access token from `~/.claude/.credentials.json`, through `collect.http` (HTTPS only, no redirects). Its `limits` list
+  has the same rows as the `/usage` report, so `reading()` and `record()` are shared. No usable token, a refusal or an
+  odd answer falls through to asking Claude Code. Tests never read the real file (`conftest.no_real_claude`).
 - **Claude limits, asked** (`usagepoll.py`, Qt-free; `ui.UsagePollThread`): with no `limits_url` and
   `limits_poll_minutes` above 0, the App runs `claude -p /usage` on a timer and writes the report's windows and
   per-model weekly limits over `claude-limits.json` (downwards too: the status line never lowers a reading, so a

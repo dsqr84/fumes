@@ -420,11 +420,18 @@ def test_claude_page_says_where_the_limits_come_from(qapp, tmp_path, monkeypatch
         return settings.SettingsWindow(keystore.MemoryStore(), collect.Ledger(tmp_path / "l.json"), folder=tmp_path,
                                        cfg=Config(**kw))
     w = win()
-    assert "not found" in w.pages["claude"].source.text()                # conftest: no Claude Code in tests
+    assert "not signed in or not installed" in w.pages["claude"].source.text()   # conftest: no Claude Code in tests
     w.close()
     monkeypatch.setattr("fumes.usagepoll.find_claude", lambda *a, **k: "/opt/claude")
     w = win()
-    assert "asks it every 5 minutes" in w.pages["claude"].source.text()
+    assert "asking Claude Code on this computer every 5 minutes" in w.pages["claude"].source.text()
+    w.close()
+    monkeypatch.setattr("fumes.usagepoll.signin_token", lambda *a, **k: "t" * 40)
+    w = win()
+    assert "with Claude Code's sign-in" in w.pages["claude"].source.text()
+    w.close()
+    w = win(limits_use_signin=False)
+    assert "asking Claude Code" in w.pages["claude"].source.text()
     w.close()
     w = win(limits_poll_minutes=0)
     assert "turned off" in w.pages["claude"].source.text()

@@ -229,7 +229,7 @@ def test_doctor_bad_providers_json_entry(env, capsys):
 def test_doctor_claude_limits_never_offers_a_status_line(env, capsys, monkeypatch):
     s = env.home / "settings.json"
     code, c, doc = checks(capsys)
-    assert c["claude-limits"]["state"] == "info" and "was not found" in c["claude-limits"]["message"]
+    assert c["claude-limits"]["state"] == "info" and "not signed in or not installed" in c["claude-limits"]["message"]
     assert doc["snippet"] is None and code == 0
     _, out, _ = run(capsys, "doctor")
     assert "statusLine" not in out and "{" not in out
@@ -240,7 +240,7 @@ def test_doctor_claude_limits_never_offers_a_status_line(env, capsys, monkeypatc
     (env.cfg / statusline.FILE).write_text(json.dumps({
         "updated": "2026-11-13T09:00:00Z", "five_hour": {"used_percentage": 5, "resets_at": 1900000000}}))
     _, c, doc = checks(capsys)
-    assert c["claude-limits"]["state"] == "ok" and "asks Claude Code" in c["claude-limits"]["message"]
+    assert c["claude-limits"]["state"] == "ok" and "asking Claude Code" in c["claude-limits"]["message"]
     assert "3 h ago" in c["claude-limits"]["message"] and doc["snippet"] is None
     monkeypatch.setattr("fumes.usagepoll.find_claude", lambda *a, **k: None)
     s.write_text(json.dumps({"statusLine": {"type": "command", "command": "py -m fumes.statusline"}}))

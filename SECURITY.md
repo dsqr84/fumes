@@ -21,6 +21,12 @@ what they get, and steps to reproduce; never include a real key.
 - **A bad value never takes the app down.** Under PyQt6 an exception escaping any Qt callback would
   abort the process; Fumes installs its own exception hook and guards every paint, so the worst case
   is one blank frame.
+- **Claude Code's sign-in** is the one credential Fumes reads that you did not give it. For the Claude
+  limits it reads the access token in `~/.claude/.credentials.json`, sends it in one HTTPS request to
+  `api.anthropic.com` (no redirects followed), and drops it. It is never written, logged, shown,
+  refreshed or sent to another host, and an expired one is left for Claude Code to renew. The token can
+  use your Claude subscription, so this is a real grant of trust: `limits_use_signin = false` turns it
+  off, and Fumes then only asks the Claude Code program.
 - **The Claude limits poll** starts one program Fumes chose itself: `claude -p /usage`, every five
   minutes, when limits are read on this computer. The program is taken from `~/.local/bin` or an
   absolute PATH folder, never the current folder; on Windows only a real `claude.exe`, never a `.cmd`

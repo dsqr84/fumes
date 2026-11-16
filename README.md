@@ -97,11 +97,13 @@ balance as JSON; [`fumes/guides/command.md`](fumes/guides/command.md) has the co
 for having an AI write it). To build one into Fumes for everyone, see
 [`docs/ADDING-A-PROVIDER.md`](docs/ADDING-A-PROVIDER.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-**Claude limits** come from Claude Code on the same computer. If it is installed, Fumes asks it every
-five minutes (`claude -p /usage`: a local command, no model call, no cost), which also gives the
-per-model weekly limit shown as a blue bar. There is nothing to set up, and Fumes does not touch
-Claude Code's settings ([`fumes/guides/claude.md`](fumes/guides/claude.md)). `limits_poll_minutes = 0`
-turns the asking off.
+**Claude limits** come from Claude Code on the same computer, with nothing to set up. Every five
+minutes Fumes asks Anthropic for your usage with the sign-in Claude Code already keeps there (one
+request to `api.anthropic.com`; the sign-in is never saved, changed or sent elsewhere), and falls back
+to running `claude -p /usage` (a local command, no model call). That also gives the per-model weekly
+limit shown as a blue bar. Fumes does not touch Claude Code's settings
+([`fumes/guides/claude.md`](fumes/guides/claude.md)). `limits_use_signin = false` and
+`limits_poll_minutes = 0` turn these off.
 
 ## Configure
 

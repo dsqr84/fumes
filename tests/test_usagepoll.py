@@ -120,7 +120,7 @@ def test_a_program_that_cannot_start_or_is_missing(tmp_path):
         raise FileNotFoundError(argv[0])
     with pytest.raises(usagepoll.PollError, match="could not be started"):
         usagepoll.poll(tmp_path, "/nope/claude", NOW, boom)
-    with pytest.raises(usagepoll.PollError, match="not found"):
+    with pytest.raises(usagepoll.PollError, match="not signed in or not installed"):
         usagepoll.poll(tmp_path, None, NOW, fake_popen())            # conftest: nothing is installed in tests
 
 
@@ -161,8 +161,8 @@ def test_the_app_polls_only_for_local_limits(qapp, tmp_path, monkeypatch):
     started = []
 
     class FakeThread:
-        def __init__(self, folder, claude):
-            started.append((folder, claude))
+        def __init__(self, folder, use_signin=True):
+            started.append((folder, use_signin))
             self.done = type("S", (), {"connect": lambda self, fn: None})()
 
         def isRunning(self):  # noqa: N802
@@ -174,17 +174,20 @@ def test_the_app_polls_only_for_local_limits(qapp, tmp_path, monkeypatch):
     monkeypatch.setattr(ui, "UsagePollThread", FakeThread)
     a = app(tmp_path)
     a.poll_usage()
-    assert not started and "not found" in a.poll_error               # nothing installed: quiet, no thread
+    assert not started and "not signed in or not installed" in a.poll_error   # nothing here: quiet, no thread
     monkeypatch.setattr(usagepoll, "find_claude", lambda *x, **k: "/opt/claude")
     a.poll_usage()
     a.poll_usage()                                                   # one at a time
-    assert started == [(tmp_path, "/opt/claude")]
+    assert started == [(tmp_path, True)]
     assert a.poll_timer.isActive() and a.poll_timer.interval() == 5 * 60_000
     for kw in ({"limits_url": "http://x.example/l.json"}, {"limits_poll_minutes": 0}, {"show_limits": False}):
         started.clear()
         b = app(tmp_path, **kw)
         b.poll_usage()
         assert not started, kw
+    started.clear()
+    app(tmp_path, limits_use_signin=False).poll_usage()
+    assert started == [(tmp_path, False)]
 
 
 def test_a_poll_answer_reaches_the_strip(qapp, tmp_path):
@@ -202,3 +205,114 @@ def test_config_accepts_zero_and_sane_intervals():
     for bad in (-1, 0.2, 5000, "5", True):
         cfg, warns = cfgmod.parse_config({"limits_poll_minutes": bad})
         assert cfg.limits_poll_minutes == 5 and warns, bad
+
+
+# ---- the direct way: Claude Code's sign-in and the usage endpoint -----------------------------------
+TOKEN = "sk-ant-oat01-" + "T" * 60
+BODY = {"five_hour": {"utilization": 30.0}, "limits": REPORT["rate_limits"]["limits"], "extra": {"deep": [1, 2]}}
+
+
+class FakeHttp:
+    def __init__(self, status=200, body=None, error=None):
+        self.status, self.body, self.error, self.calls = status, BODY if body is None else body, error, []
+
+    def get(self, url, headers):
+        self.calls.append((url, dict(headers)))
+        if self.error:
+            raise self.error
+        return self.status, self.body
+
+
+def signin(tmp_path, monkeypatch, token=TOKEN, expires_in=3600, now=NOW, **extra):
+    f = tmp_path / "creds" / ".credentials.json"
+    f.parent.mkdir(exist_ok=True)
+    f.write_text(json.dumps({"mcpOAuth": {"x": "y"}, "claudeAiOauth": dict(
+        {"accessToken": token, "refreshToken": "sk-ant-ort01-SECRETREFRESH", "expiresAt": (now + expires_in) * 1000},
+        **extra)}), "utf-8")
+    monkeypatch.setattr(usagepoll, "credentials_path", lambda *a, **k: f)
+    monkeypatch.setattr(usagepoll.time, "time", lambda: now)
+    return f
+
+
+def test_direct_sends_the_token_to_anthropic_only_and_records_the_answer(tmp_path, monkeypatch):
+    signin(tmp_path, monkeypatch)
+    http, started = FakeHttp(), []
+    assert usagepoll.poll(tmp_path, None, NOW, lambda *a, **k: started.append(a), http=http) is True
+    (url, headers), = http.calls
+    assert url == "https://api.anthropic.com/api/oauth/usage" and not started          # Claude Code is not run
+    assert headers == {"Authorization": "Bearer " + TOKEN, "anthropic-beta": "oauth-2025-04-20"}
+    doc = stored(tmp_path)
+    assert doc["five_hour"]["used_percentage"] == 24.0 and list(doc["seven_day_models"]) == ["Fable"]
+    assert TOKEN not in json.dumps(doc) and "SECRETREFRESH" not in json.dumps(doc)       # nothing of it is kept
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["claude-limits.json", "creds"]
+
+
+@pytest.mark.parametrize("http", [FakeHttp(401, {"error": {"message": "token " + TOKEN}}), FakeHttp(403, "no"),
+                                  FakeHttp(500, "oops " + TOKEN), FakeHttp(200, "not json"), FakeHttp(200, {"limits": []}),
+                                  FakeHttp(200, {"limits": "x"}), FakeHttp(302, "")])
+def test_a_refused_or_odd_answer_falls_back_to_asking_claude_code(tmp_path, monkeypatch, http):
+    signin(tmp_path, monkeypatch)
+    calls = []
+    assert usagepoll.poll(tmp_path, "/opt/claude", NOW, fake_popen(calls=calls), http=http) is True
+    assert len(calls) == 1 and stored(tmp_path)["seven_day"]["used_percentage"] == 14.0
+    assert all(TOKEN not in a for argv, kw in calls for a in argv) and "env" not in calls[0][1]
+
+
+def test_with_no_other_way_the_error_never_carries_the_token_or_the_servers_words(tmp_path, monkeypatch):
+    from fumes.collect.http import ProviderError
+    signin(tmp_path, monkeypatch)
+    for http in (FakeHttp(401, {"error": TOKEN}), FakeHttp(500, "leak " + TOKEN),
+                 FakeHttp(error=ProviderError("api.anthropic.com: " + TOKEN))):
+        with pytest.raises(usagepoll.PollError) as e:
+            usagepoll.poll(tmp_path, None, NOW, fake_popen(), http=http)
+        assert TOKEN not in str(e.value) and "leak" not in str(e.value)
+    assert not (tmp_path / statusline.FILE).exists()
+
+
+def test_an_expired_missing_or_malformed_signin_is_not_used(tmp_path, monkeypatch):
+    http = FakeHttp()
+    for kw in ({"expires_in": -10}, {"expires_in": 60}, {"token": "short"}, {"token": "a" * 5000},
+               {"token": "sk-ant-oat01-with space" + "x" * 30}, {"token": "sk-ant-oat01-line\r\nX-Evil: 1" + "x" * 30},
+               {"token": 12345}, {"token": "sk-ant-oat01-" + "é" * 30}):
+        f = signin(tmp_path, monkeypatch, **kw)
+        assert usagepoll.signin_token() is None, kw
+        assert usagepoll.available() is None
+    for body in ("", "not json", "[]", '{"claudeAiOauth": "x"}', '{"claudeAiOauth": {"accessToken": "%s"}}' % TOKEN,
+                 '{"claudeAiOauth": {"accessToken": "%s", "expiresAt": true}}' % TOKEN):
+        f.write_text(body, "utf-8")
+        assert usagepoll.signin_token() is None, body
+    f.unlink()
+    assert usagepoll.signin_token() is None
+    with pytest.raises(usagepoll.PollError):
+        usagepoll.poll(tmp_path, None, NOW, fake_popen(), http=http)
+    assert not http.calls                                              # no token: no request at all
+    signin(tmp_path, monkeypatch)
+    assert usagepoll.signin_token() == TOKEN and usagepoll.available() == "signin"
+
+
+def test_the_signin_can_be_turned_off(tmp_path, monkeypatch):
+    signin(tmp_path, monkeypatch)
+    http, calls = FakeHttp(), []
+    assert usagepoll.available(use_signin=False) is None
+    usagepoll.poll(tmp_path, "/opt/claude", NOW, fake_popen(calls=calls), use_signin=False, http=http)
+    assert not http.calls and len(calls) == 1
+    assert cfgmod.parse_config({"limits_use_signin": False})[0].limits_use_signin is False
+    assert cfgmod.parse_config({"limits_use_signin": "no"})[0].limits_use_signin is True
+
+
+def test_credentials_path_follows_claude_code(tmp_path, monkeypatch):
+    monkeypatch.undo()
+    assert usagepoll.credentials_path({}, tmp_path) == tmp_path / ".claude" / ".credentials.json"
+    assert usagepoll.credentials_path({"CLAUDE_CONFIG_DIR": str(tmp_path / "cc")}, tmp_path) == \
+        tmp_path / "cc" / ".credentials.json"
+    assert usagepoll.credentials_path({"CLAUDE_CONFIG_DIR": "relative/dir"}, tmp_path) == \
+        tmp_path / ".claude" / ".credentials.json"
+
+
+def test_the_real_http_client_refuses_redirects_and_plain_http():
+    """The token rides on collect.http: HTTPS only and no redirects, so it cannot be sent anywhere else."""
+    from fumes.collect import http as httpmod
+    assert usagepoll.USAGE_URL.startswith("https://api.anthropic.com/")
+    with pytest.raises(httpmod.ProviderError):
+        httpmod.Http().get("http://api.anthropic.com/api/oauth/usage", {})
+    assert httpmod._NoRedirect().redirect_request(None, None, 302, "", {}, "https://evil.example/") is None

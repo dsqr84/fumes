@@ -37,6 +37,7 @@ class Config:
     font_size: float | None = None   # points; None = size the figures to match the logos
     limits_url: str = DEFAULT_LIMITS_URL
     limits_refresh_minutes: float = 2
+    limits_use_signin: bool = True   # read the limits with Claude Code's own sign-in on this computer (usagepoll.direct)
     limits_poll_minutes: float = 5   # how often Claude Code on this computer is asked (`claude -p /usage`); 0 = never
     show_limits: bool = True
     limits_link: str = CLAUDE_USAGE_URL   # [links] claude: kept apart from `links` (provider ids)
@@ -86,6 +87,7 @@ _RULES = {
     "limits_refresh_minutes": _pos_num,
     "limits_poll_minutes": lambda v: _is_num(v) and (v == 0 or 1 <= v <= 1440),
     "show_limits": lambda v: isinstance(v, bool),
+    "limits_use_signin": lambda v: isinstance(v, bool),
 }
 
 

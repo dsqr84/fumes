@@ -1,4 +1,20 @@
-"""Ask Claude Code for the subscription limits: run `claude -p /usage` and record its answer. No Qt.
+"""The Claude subscription limits for this computer, with nothing for the user to set up. No Qt.
+
+Two ways, tried in this order by poll():
+
+1. Directly (`direct`): one HTTPS GET of the usage endpoint Claude Code itself calls, with the sign-in
+   Claude Code keeps on this computer (~/.claude/.credentials.json). Fast (a fraction of a second) and it
+   works with any Claude Code install. The token is read for that one request and nothing else: never
+   written, logged, refreshed or sent to any host but api.anthropic.com, over HTTPS with no redirects
+   (collect.http). An expired or missing token is not an error, just a reason to use the second way.
+   `limits_use_signin = false` turns this off.
+2. By asking Claude Code (`ask`): run `claude -p /usage` and read its report, described below. It needs
+   no token here, and running it renews Claude Code's sign-in, so the direct way works again afterwards.
+
+Both give the same rows, so reading() and record() serve both. The endpoint is undocumented and the
+report's shape is marked experimental: either may change, and then the limits file is left as it was.
+
+Asking Claude Code:
 
 The status line (statusline.py) only reports the 5-hour and weekly windows, only while a Claude Code
 session is drawing its status row, and never lowers a reading. `/usage` sent as a prompt is a local
@@ -24,6 +40,12 @@ from pathlib import Path
 
 from . import statusline
 from .collect.custom import MAX_OUTPUT, _read_bounded
+
+USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
+OAUTH_BETA = "oauth-2025-04-20"
+MAX_CREDENTIALS = 4 * 1024 * 1024     # the file also holds other sign-ins (MCP servers); a few hundred KB
+MAX_TOKEN = 4096
+EXPIRY_MARGIN = 120                    # seconds: a token about to expire is left for Claude Code to renew
 
 ARGS = ("-p", "/usage", "--output-format", "stream-json", "--verbose", "--no-session-persistence",
         "--strict-mcp-config", "--mcp-config", '{"mcpServers": {}}')
@@ -58,6 +80,56 @@ def find_claude(env=None, home=None, platform=None):
             except OSError:
                 continue
     return None
+
+
+def credentials_path(env=None, home=None):
+    """Where Claude Code keeps its sign-in on Windows and Linux (macOS uses the Keychain: not read)."""
+    env = os.environ if env is None else env
+    base = env.get("CLAUDE_CONFIG_DIR")
+    folder = Path(base) if base and os.path.isabs(base) else (Path(home) if home else Path.home()) / ".claude"
+    return folder / ".credentials.json"
+
+
+def signin_token(path=None, now=None):
+    """Claude Code's current access token, or None when there is none, it is unreadable, or it has (nearly)
+    expired. Read as untrusted data. The token is returned to the caller for one request and kept nowhere."""
+    path = Path(path) if path else credentials_path()
+    try:
+        with open(path, "rb") as f:
+            data = f.read(MAX_CREDENTIALS + 1)
+        if len(data) > MAX_CREDENTIALS:
+            return None
+        doc = json.loads(data.decode("utf-8"))
+    except (OSError, ValueError, RecursionError):
+        return None
+    oauth = doc.get("claudeAiOauth") if isinstance(doc, dict) else None
+    if not isinstance(oauth, dict):
+        return None
+    token, exp = oauth.get("accessToken"), oauth.get("expiresAt")
+    if not isinstance(token, str) or not 20 <= len(token) <= MAX_TOKEN:
+        return None
+    if not token.isascii() or not token.isprintable() or any(c.isspace() for c in token):
+        return None                                   # it goes into a header: nothing that could split one
+    if isinstance(exp, bool) or not isinstance(exp, (int, float)):
+        return None
+    now = time.time() if now is None else now
+    return token if exp / 1000.0 - EXPIRY_MARGIN > now else None
+
+
+def direct(token, http=None):
+    """The usage endpoint's answer as a report reading() understands. Raises PollError; the message never
+    holds the token or anything the server said."""
+    from .collect.http import Http, ProviderError
+    try:
+        status, body = (http or Http()).get(USAGE_URL, {"Authorization": "Bearer " + token,
+                                                        "anthropic-beta": OAUTH_BETA})
+    except ProviderError as e:
+        raise PollError("the usage endpoint could not be reached") from e
+    if status in (401, 403):
+        raise PollError("the usage endpoint refused Claude Code's sign-in")
+    if status != 200 or not isinstance(body, dict):
+        raise PollError(f"the usage endpoint answered {status if isinstance(status, int) else 'oddly'}")
+    return {"rate_limits": {"limits": body.get("limits")}}
 
 
 def _epoch(ts):
@@ -163,15 +235,35 @@ def record(path, windows, models, now):
     return True
 
 
-def poll(folder, claude=None, now=None, popen=subprocess.Popen):
-    """One poll: ask, check, record in <folder>/claude-limits.json. Returns True if the file changed.
-    Raises PollError (nothing written) when Claude Code is missing, fails, or reports no limits."""
-    claude = claude or find_claude()
-    if not claude:
-        raise PollError("Claude Code was not found on this computer")
-    windows, models = reading(ask(claude, folder, popen))
+def available(use_signin=True):
+    """How the limits can be had on this computer right now: "signin", "claude" or None."""
+    if use_signin and signin_token():
+        return "signin"
+    return "claude" if find_claude() else None
+
+
+def poll(folder, claude=None, now=None, popen=subprocess.Popen, use_signin=True, http=None):
+    """One poll: get the limits (directly, else by asking Claude Code), check them, record them in
+    <folder>/claude-limits.json. Returns True if the file changed. Raises PollError, with nothing written,
+    when neither way produced limits."""
+    windows, models, why = {}, {}, None
+    token = signin_token() if use_signin else None
+    if token:
+        try:
+            windows, models = reading(direct(token, http))
+            if not windows:
+                why = PollError("no limits in the usage endpoint's answer")
+        except PollError as e:
+            why = e
+        finally:
+            token = None                              # not kept past the request
     if not windows:
-        raise PollError("no limits in the usage report (not a Claude subscription, or the report changed)")
+        claude = claude or find_claude()
+        if not claude:
+            raise why or PollError("Claude Code is not signed in or not installed on this computer")
+        windows, models = reading(ask(claude, folder, popen))
+        if not windows:
+            raise PollError("no limits in the usage report (not a Claude subscription, or the report changed)")
     try:
         return record(Path(folder) / statusline.FILE, windows, models, time.time() if now is None else now)
     except OSError as e:

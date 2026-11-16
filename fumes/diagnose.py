@@ -255,17 +255,18 @@ def run_doctor(folder, store, now, settings_path=None, config_warnings=None, con
         add("claude-limits", "ok", "the Claude limits are read from the address in limits_url" + last)
     elif not cfg.show_limits:
         add("claude-limits", "info", "the Claude limits cell is turned off (show_limits = false)")
-    elif cfg.limits_poll_minutes > 0 and usagepoll.find_claude():
-        add("claude-limits", "ok", f"Fumes asks Claude Code on this computer for the limits every "
-            f"{cfg.limits_poll_minutes:g} minutes (claude -p /usage)" + last)
+    elif cfg.limits_poll_minutes > 0 and usagepoll.available(cfg.limits_use_signin):
+        how = ("with Claude Code's sign-in on this computer" if usagepoll.available(cfg.limits_use_signin) == "signin"
+               else "by asking Claude Code on this computer (claude -p /usage)")
+        add("claude-limits", "ok", f"Fumes reads the Claude limits {how} every "
+            f"{cfg.limits_poll_minutes:g} minutes" + last)
     elif doc["limits"]["statusline"] == "configured":
         add("claude-limits", "ok", "Claude Code's status line records the limits" + last)
     else:
-        why = ("asking Claude Code is turned off (limits_poll_minutes = 0)" if cfg.limits_poll_minutes <= 0 else
-               "the Claude Code program was not found on this computer (on Windows, its own installer's "
-               "claude.exe is needed)")
-        add("claude-limits", "info", f"no Claude limits: {why}. Install Claude Code, or set limits_url to "
-            "another computer's limits file")
+        why = ("reading them is turned off (limits_poll_minutes = 0)" if cfg.limits_poll_minutes <= 0 else
+               "Claude Code is not signed in or not installed on this computer")
+        add("claude-limits", "info", f"no Claude limits: {why}. Sign in to Claude Code here, or set limits_url "
+            "to another computer's limits file")
 
     add("autostart", "ok" if win.autostart_enabled() else "info",
         "Fumes starts with Windows" if win.autostart_enabled() else "Fumes does not start with Windows")

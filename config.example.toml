@@ -13,7 +13,9 @@
 # show_limits = true          # the Claude limits cell (leftmost; a bar per window) and its collapse button
 # limits_url = "https://example.com/claude-limits.json"   # optional remote Claude limits (off when unset)
 # limits_refresh_minutes = 2  # fetched on its own timer
-# limits_poll_minutes = 5     # without limits_url: how often Claude Code here is asked (claude -p /usage); 0 = never
+# limits_poll_minutes = 5     # without limits_url: how often the limits are read on this computer; 0 = never
+# limits_use_signin = true    # read them with Claude Code's own sign-in (one request to api.anthropic.com);
+#                             # false: only by running `claude -p /usage`
 # browser = "chrome"          # open links in Chrome when found; "default" uses the system browser
 
 # Console / billing page opened from each provider's peek. These are the defaults; acme has none.

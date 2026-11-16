@@ -59,11 +59,12 @@ def qapp():
 
 
 @pytest.fixture(autouse=True)
-def no_real_claude(monkeypatch):
-    """No test may start the Claude Code installed on this machine: the poll finds nothing unless a test
-    hands it a program."""
+def no_real_claude(monkeypatch, tmp_path):
+    """No test may start the Claude Code installed on this machine or read its sign-in: the poll finds
+    neither unless a test hands it one."""
     from fumes import usagepoll
     monkeypatch.setattr(usagepoll, "find_claude", lambda *a, **k: None)
+    monkeypatch.setattr(usagepoll, "credentials_path", lambda *a, **k: tmp_path / "no-claude" / ".credentials.json")
 
 
 @pytest.fixture(autouse=True)

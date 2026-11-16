@@ -747,16 +747,20 @@ class ClaudePage(Page):
             self.source.setText(f"Reading the limits from an address: {url}")
             return
         mins = getattr(self.w.cfg, "limits_poll_minutes", 0) if self.w.cfg is not None else 0
-        if mins > 0 and self.w.claude_found():
-            self.source.setText(f"Reading the limits from Claude Code on this computer: Fumes asks it every "
+        way = self.w.limits_way() if mins > 0 else None
+        if way == "signin":
+            self.source.setText(f"Reading the limits with Claude Code's sign-in on this computer, every "
                                 f"{mins:g} minutes. Nothing to set up.")
+        elif way == "claude":
+            self.source.setText(f"Reading the limits by asking Claude Code on this computer every {mins:g} "
+                                "minutes. Nothing to set up.")
         elif mins <= 0:
-            self.source.setText("Asking Claude Code for the limits is turned off (limits_poll_minutes = 0 in "
-                                "config.toml).")
+            self.source.setText("Reading the limits on this computer is turned off (limits_poll_minutes = 0 "
+                                "in config.toml).")
         else:
-            self.source.setText("The Claude Code program was not found on this computer, so there are no "
-                                "limits to show. Install Claude Code with its own installer, or enter the "
-                                "address of another computer's limits file above.")
+            self.source.setText("Claude Code is not signed in or not installed on this computer, so there are "
+                                "no limits to show. Sign in to Claude Code here, or enter the address of "
+                                "another computer's limits file above.")
         upd = self.last_reading()
         self.last.setText(f"Last reading: {upd}" if upd else "No reading yet")
 
@@ -831,7 +835,6 @@ class SettingsWindow(QWidget):
         self.cfg, self.autostart_action, self.on_refresh = cfg, autostart_action, on_refresh
         self.config_path = Path(config_path) if config_path else None     # None: Settings cannot change config.toml
         self.on_limits_source = on_limits_source
-        self._claude_found = None
         self.theme = theme if theme in ("dark", "light") else "dark"
         self.colors = DARK if self.theme == "dark" else LIGHT
         self._opener, self._confirm, self.dpr = opener, confirm, dpr
@@ -991,12 +994,10 @@ class SettingsWindow(QWidget):
         box.setDefaultButton(QMessageBox.StandardButton.No)
         return box.exec() == QMessageBox.StandardButton.Yes
 
-    def claude_found(self):
-        """Is the Claude Code program on this computer (so the limits can be asked for directly)?"""
+    def limits_way(self):
+        """"signin", "claude" or None: how the limits can be read on this computer (usagepoll.available)."""
         from . import usagepoll
-        if self._claude_found is None:
-            self._claude_found = bool(usagepoll.find_claude())
-        return self._claude_found
+        return usagepoll.available(getattr(self.cfg, "limits_use_signin", True))
 
     def set_limits_url(self, url):
         """Save the Claude limits address ("" = this computer) to config.toml and apply it now.

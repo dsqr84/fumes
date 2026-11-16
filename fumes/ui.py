@@ -696,14 +696,14 @@ class UsagePollThread(QThread):
     """One `claude -p /usage` poll (usagepoll.poll), off the UI thread: it can take seconds."""
     done = pyqtSignal(bool, str)  # the limits file changed?, error text ("" = it answered)
 
-    def __init__(self, folder, claude, parent=None):
+    def __init__(self, folder, use_signin=True, parent=None):
         super().__init__(parent)
-        self.folder, self.claude = folder, claude
+        self.folder, self.use_signin = folder, use_signin
 
     def run(self):
         from . import usagepoll
         try:
-            self.done.emit(usagepoll.poll(self.folder, self.claude), "")
+            self.done.emit(usagepoll.poll(self.folder, use_signin=self.use_signin), "")
         except usagepoll.PollError as e:
             self.done.emit(False, str(e))
         except Exception as e:  # noqa: BLE001 (never reach the UI thread)
@@ -846,7 +846,7 @@ class App:
         if cfg.show_limits:
             self.limits_timer.timeout.connect(self.refresh_limits)
             self.limits_timer.start(int(cfg.limits_refresh_minutes * 60_000))
-        self.poll_thread, self.poll_error, self._claude = None, "", None
+        self.poll_thread, self.poll_error = None, ""
         self.poll_timer = QTimer()
         self.poll_timer.timeout.connect(self.poll_usage)
         if cfg.show_limits and cfg.limits_poll_minutes > 0:
@@ -972,26 +972,23 @@ class App:
         self.limits_thread.start()
 
     def poll_usage(self):
-        """Ask Claude Code on this computer for the limits (usagepoll), when they are read locally and it
-        is installed. Its answer lands in claude-limits.json, which is then read like a status line write."""
+        """Read the limits on this computer (usagepoll: with Claude Code's sign-in, else by asking Claude
+        Code), when they are not read from an address. The answer lands in claude-limits.json."""
         if not self.cfg.show_limits or self.cfg.limits_url or self.cfg.limits_poll_minutes <= 0:
             return
         if self.poll_thread is not None and self.poll_thread.isRunning():
             return
         from . import usagepoll
-        self._claude = self._claude or usagepoll.find_claude()
-        if not self._claude:
-            self.poll_error = "Claude Code was not found on this computer"
+        if not usagepoll.available(self.cfg.limits_use_signin):
+            self.poll_error = "Claude Code is not signed in or not installed on this computer"
             return
-        self.poll_thread = UsagePollThread(self.folder, self._claude)
+        self.poll_thread = UsagePollThread(self.folder, self.cfg.limits_use_signin)
         self.poll_thread.done.connect(self._usage_polled)
         self.poll_thread.start()
 
     def _usage_polled(self, changed, error):
         self.poll_error = error
-        if error:
-            self._claude = None               # look for the program again next time: it may have moved
-        elif not self.cfg.limits_url:
+        if not error and not self.cfg.limits_url:
             self._read_local_limits()
 
     def limits_source_changed(self):
