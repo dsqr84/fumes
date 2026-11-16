@@ -17,8 +17,8 @@ The rules there are absolute. In short:
   the provider and make a new one.
 - **Verify, do not assume.** After each step run `python -m fumes status --json` or
   `python -m fumes doctor` and read the result.
-- **Ask before replacing** an existing Claude Code status line in `~/.claude/settings.json`; keep
-  every other setting in that file.
+- **Leave Claude Code's settings alone.** Fumes needs no status line: it asks Claude Code for the
+  limits itself. Never add or replace one in `~/.claude/settings.json`.
 
 Provider facts (also in `fumes/guides/<provider>.md`): OpenAI and Anthropic need Admin keys, and an
 individual Anthropic Console account must be converted to a team first; fal needs a key on the

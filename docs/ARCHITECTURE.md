@@ -38,7 +38,7 @@ These are durable facts about the code: how the parts fit and what is baked in t
   `limits_poll_minutes` above 0, the App runs `claude -p /usage` on a timer and writes the report's windows and
   per-model weekly limits over `claude-limits.json` (downwards too: the status line never lowers a reading, so a
   limit reset early froze it). Tests never start the real program (`conftest.no_real_claude`).
-- **Claude limits, local** (`statusline.py`): `python -m fumes.statusline` as Claude Code's status line writes
+- **Claude limits, status line (legacy)** (`statusline.py`): no longer offered anywhere (2026-11-16: it replaced the user's own status line); the command still works for anyone who set it up. `python -m fumes.statusline` as Claude Code's status line writes
   `claude-limits.json` in the config folder; with no `limits_url` the App reads that file (64 KB cap; no file is
   "no reading", a bad one dims the cell). It must never import Qt (a test checks) and never print an error.
 

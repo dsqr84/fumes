@@ -291,20 +291,11 @@ def test_statusline_command_quoting():
             win.statusline_command("C:/ok", bad + "/python.exe")
 
 
-def test_claude_snippet_is_valid_json(env):
+def test_claude_page_offers_no_status_line(env):
     p = page(env, "claude")
-    doc = json.loads(p.snippet.toPlainText())
-    assert doc["statusLine"]["type"] == "command"
-    assert "fumes.statusline" in doc["statusLine"]["command"]
-    assert p.snippet.isReadOnly()
-    assert "Optional" in " ".join(texts(env))
-
-
-def test_claude_copy(env):
-    from PyQt6.QtGui import QGuiApplication
-    p = page(env, "claude")
-    p.do_copy()
-    assert QGuiApplication.clipboard().text() == p.snippet.toPlainText()
+    assert not hasattr(p, "snippet") and not hasattr(p, "copy")
+    said = " ".join(texts(env))
+    assert "statusLine" not in said and "status line" not in said.lower()
 
 
 def test_claude_last_reading(env, tmp_path):
@@ -424,20 +415,17 @@ def test_the_real_confirmation_box_shows_text_never_html(qapp, tmp_path, monkeyp
     w.close()
 
 
-def test_your_own_status_line_is_never_offered_for_replacement(qapp, tmp_path, monkeypatch):
-    own = tmp_path / "settings.json"
-    own.write_text(json.dumps({"statusLine": {"type": "command", "command": "my-own-line"}}), "utf-8")
-    monkeypatch.setattr(settings.diagnose, "claude_settings_path", lambda: own)
-    w = settings.SettingsWindow(keystore.MemoryStore(), collect.Ledger(tmp_path / "l.json"), folder=tmp_path,
-                                cfg=Config())
-    p = w.pages["claude"]
-    assert p.snippet.isHidden() and p.copy.isHidden()
-    assert "Keep it" not in p.note.text() and "will not ask you to replace it" in p.note.text()   # no claude here
+def test_claude_page_says_where_the_limits_come_from(qapp, tmp_path, monkeypatch):
+    def win(**kw):
+        return settings.SettingsWindow(keystore.MemoryStore(), collect.Ledger(tmp_path / "l.json"), folder=tmp_path,
+                                       cfg=Config(**kw))
+    w = win()
+    assert "not found" in w.pages["claude"].source.text()                # conftest: no Claude Code in tests
+    w.close()
     monkeypatch.setattr("fumes.usagepoll.find_claude", lambda *a, **k: "/opt/claude")
-    w._claude_found = None
-    p.refresh()
-    assert "Keep it" in p.note.text() and p.snippet.isHidden()
-    own.write_text("{}", "utf-8")                                  # no status line: the optional line is offered
-    p.refresh()
-    assert not p.snippet.isHidden() and p.note.text().startswith("Optional")
+    w = win()
+    assert "asks it every 5 minutes" in w.pages["claude"].source.text()
+    w.close()
+    w = win(limits_poll_minutes=0)
+    assert "turned off" in w.pages["claude"].source.text()
     w.close()

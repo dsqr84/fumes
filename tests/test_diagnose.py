@@ -226,30 +226,29 @@ def test_doctor_bad_providers_json_entry(env, capsys):
     assert code == 1
 
 
-def test_doctor_statusline_states(env, capsys, monkeypatch):
+def test_doctor_claude_limits_never_offers_a_status_line(env, capsys, monkeypatch):
     s = env.home / "settings.json"
     code, c, doc = checks(capsys)
-    assert c["claude-limits"]["state"] == "info" and doc["snippet"]["statusLine"]["type"] == "command"
-    from fumes import win
-    assert doc["snippet"]["statusLine"]["command"] == win.statusline_command()
+    assert c["claude-limits"]["state"] == "info" and "was not found" in c["claude-limits"]["message"]
+    assert doc["snippet"] is None and code == 0
     _, out, _ = run(capsys, "doctor")
-    block = out[out.index("{"):out.index("}\n}") + 3]
-    assert json.loads(block) == doc["snippet"]
-    s.write_text(json.dumps({"statusLine": {"type": "command", "command": "other-tool"}}))
+    assert "statusLine" not in out and "{" not in out
+    s.write_text(json.dumps({"statusLine": {"type": "command", "command": "other-tool"}}))     # the user's own
     _, c, doc = checks(capsys)
-    assert c["claude-limits"]["state"] == "info" and "leaves it alone" in c["claude-limits"]["message"]
-    assert doc["snippet"] is None and code == 0                  # the user's own status line: never offer to replace it
+    assert c["claude-limits"]["state"] == "info" and doc["snippet"] is None
     monkeypatch.setattr("fumes.usagepoll.find_claude", lambda *a, **k: "/opt/claude")
-    _, c, doc = checks(capsys)
-    assert c["claude-limits"]["state"] == "ok" and "asking Claude Code" in c["claude-limits"]["message"]
-    assert doc["snippet"] is None
-    s.write_text(json.dumps({"statusLine": {"type": "command", "command": "py -m fumes.statusline"}}))
     (env.cfg / statusline.FILE).write_text(json.dumps({
         "updated": "2026-11-13T09:00:00Z", "five_hour": {"used_percentage": 5, "resets_at": 1900000000}}))
+    _, c, doc = checks(capsys)
+    assert c["claude-limits"]["state"] == "ok" and "asks Claude Code" in c["claude-limits"]["message"]
+    assert "3 h ago" in c["claude-limits"]["message"] and doc["snippet"] is None
+    monkeypatch.setattr("fumes.usagepoll.find_claude", lambda *a, **k: None)
+    s.write_text(json.dumps({"statusLine": {"type": "command", "command": "py -m fumes.statusline"}}))
+    _, c, _ = checks(capsys)                                       # one already set up keeps working, and is reported
+    assert c["claude-limits"]["state"] == "ok" and "status line records" in c["claude-limits"]["message"]
+    (env.cfg / "config.toml").write_text('limits_url = "http://z.example/l.json"\n')
     _, c, _ = checks(capsys)
-    assert c["claude-limits"]["state"] == "ok" and "3 h ago" in c["claude-limits"]["message"]
-    s.write_text("not json {{")
-    assert checks(capsys)[1]["claude-limits"]["state"] == "info"
+    assert c["claude-limits"]["state"] == "ok" and "limits_url" in c["claude-limits"]["message"]
 
 
 def test_statusline_state_reads_untrusted_json(tmp_path):

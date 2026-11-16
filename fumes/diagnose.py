@@ -191,16 +191,6 @@ def _age(updated, now):
     return f"{round(s / 86400)} days ago"
 
 
-def snippet():
-    """The statusLine entry to add to Claude Code's settings, or None if no command can be built."""
-    from . import win
-    try:
-        cmd = win.statusline_command()
-    except ValueError:
-        return None
-    return {"statusLine": {"type": "command", "command": cmd}}
-
-
 def run_doctor(folder, store, now, settings_path=None, config_warnings=None, config_path=None):
     """(checks, snippet or None). checks: [{"check", "state": ok|fix|info, "message"}]."""
     from . import win
@@ -255,29 +245,27 @@ def run_doctor(folder, store, now, settings_path=None, config_warnings=None, con
     for e in doc["custom_errors"]:
         add("providers.json", "fix", f"{e} (this provider is ignored)")
 
-    sl = doc["limits"]["statusline"]
+    # Claude limits: asked from Claude Code itself (usagepoll), or read from limits_url. No status line is
+    # offered any more; one already set up for Fumes keeps working and is simply reported.
     snip = None
-    if sl == "configured":
-        rd = doc["limits"]["reading"]
-        msg = "Claude Code's status line records the limits"
-        msg += f"; last reading {_age(rd['updated'], now)}" if rd else \
-            "; no reading yet (it appears after your next Claude Code answer)"
-        add("claude-limits", "ok", msg)
-    elif sl == "other":       # the user's own status line: never advise replacing it
-        from . import usagepoll
-        if usagepoll.find_claude():
-            add("claude-limits", "ok", "Claude Code has your own status line, and Fumes leaves it alone: it gets "
-                "the limits by asking Claude Code itself (claude -p /usage)")
-        else:
-            add("claude-limits", "info", "Claude Code has your own status line, and Fumes leaves it alone. The "
-                "Claude Code program was not found here, so Fumes cannot ask it for the limits either: the "
-                "limits cell stays empty unless you set limits_url")
+    rd = doc["limits"]["reading"]
+    last = f"; last reading {_age(rd['updated'], now)}" if rd else "; no reading yet"
+    from . import usagepoll
+    if cfg.limits_url:
+        add("claude-limits", "ok", "the Claude limits are read from the address in limits_url" + last)
+    elif not cfg.show_limits:
+        add("claude-limits", "info", "the Claude limits cell is turned off (show_limits = false)")
+    elif cfg.limits_poll_minutes > 0 and usagepoll.find_claude():
+        add("claude-limits", "ok", f"Fumes asks Claude Code on this computer for the limits every "
+            f"{cfg.limits_poll_minutes:g} minutes (claude -p /usage)" + last)
+    elif doc["limits"]["statusline"] == "configured":
+        add("claude-limits", "ok", "Claude Code's status line records the limits" + last)
     else:
-        snip = snippet()
-        add("claude-limits", "info", "Claude Code's status line is not set up for Fumes. It is optional: it adds a "
-            "reading after each answer. To use it, add this to ~/.claude/settings.json (keep the other "
-            "settings):" if snip else
-            "Claude Code's status line is not set up for Fumes, and no command can be built for this folder")
+        why = ("asking Claude Code is turned off (limits_poll_minutes = 0)" if cfg.limits_poll_minutes <= 0 else
+               "the Claude Code program was not found on this computer (on Windows, its own installer's "
+               "claude.exe is needed)")
+        add("claude-limits", "info", f"no Claude limits: {why}. Install Claude Code, or set limits_url to "
+            "another computer's limits file")
 
     add("autostart", "ok" if win.autostart_enabled() else "info",
         "Fumes starts with Windows" if win.autostart_enabled() else "Fumes does not start with Windows")
@@ -291,8 +279,6 @@ def render_doctor(checks, snip):
     lines = []
     for c in checks:
         lines.append(f"{PREFIX[c['state']]} {c['check']}: {c['message']}")
-        if snip and c["check"] == "claude-limits":
-            lines.append(json.dumps(snip, indent=2))
     bad = sum(1 for c in checks if c["state"] == "fix")
     lines.append(f"{bad} problem{'s' if bad != 1 else ''} to fix." if bad else "Nothing needs fixing.")
     return "\n".join(lines)

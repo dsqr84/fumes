@@ -33,7 +33,7 @@ Claude subscription's 5-hour and weekly windows you have used.
 Get `Fumes-<version>-windows-x64.zip` from the [Releases](https://github.com/dsqr84/fumes/releases)
 page, unzip it anywhere you like (for example `%LOCALAPPDATA%\Programs\Fumes`) and run `Fumes.exe`.
 The folder also holds `fumes-cli.exe`, the command-line version, used for `fumes-cli key set ...`,
-`fumes-cli doctor` and Claude Code's status line.
+and `fumes-cli doctor`.
 
 **Check what you downloaded.** Each release has a `.sha256` file:
 `Get-FileHash Fumes-<version>-windows-x64.zip` in PowerShell must print the same value. Releases are
@@ -71,8 +71,7 @@ keys, which can manage your whole account, not just read it. Until the Settings 
 .venv\Scripts\python -m fumes doctor               # checks each step, says what to fix, never prints a key
 ```
 
-`fumes doctor` ends with the exact `statusLine` entry to add to Claude Code's settings if you use the
-Claude limits cell. Neither `status` nor `doctor` ever prints a key or any part of one.
+Neither `status` nor `doctor` ever prints a key or any part of one.
 
 **Set up with an AI assistant.** Paste the prompt from [`docs/SETUP-WITH-AI.md`](docs/SETUP-WITH-AI.md)
 (also `fumes setup-prompt`, or **Copy setup prompt** in Settings, General) into Claude Code or another
@@ -100,9 +99,9 @@ for having an AI write it). To build one into Fumes for everyone, see
 
 **Claude limits** come from Claude Code on the same computer. If it is installed, Fumes asks it every
 five minutes (`claude -p /usage`: a local command, no model call, no cost), which also gives the
-per-model weekly limit shown as a blue bar. Setting Claude Code's status line to
-`python -m fumes.statusline` (see [`fumes/guides/claude.md`](fumes/guides/claude.md)) adds a reading
-after every answer while you work. `limits_poll_minutes = 0` turns the asking off.
+per-model weekly limit shown as a blue bar. There is nothing to set up, and Fumes does not touch
+Claude Code's settings ([`fumes/guides/claude.md`](fumes/guides/claude.md)). `limits_poll_minutes = 0`
+turns the asking off.
 
 ## Configure
 

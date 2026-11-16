@@ -28,10 +28,10 @@ Steps:
    and name it Fumes. Then run `fumes key set <provider>` for me to paste into.
 4. OpenAI and Anthropic have no balance API: ask me for the credit balance their billing page shows
    (a dollar amount is fine to share) and run `fumes anchor <provider> <amount>`.
-5. If I use a Claude subscription with Claude Code, set up the status line: run `fumes doctor`,
-   which prints the exact statusLine entry for this computer, and add it to
-   %USERPROFILE%\.claude\settings.json, keeping everything else in that file. If I already have a
-   status line, ask me before replacing it.
+5. If I use a Claude subscription with Claude Code, there is nothing to set up: Fumes asks Claude
+   Code on this computer for the limits itself. Run `fumes doctor` and tell me what its
+   claude-limits line says. Do not add or change a status line in
+   %USERPROFILE%\.claude\settings.json.
 6. For any other service, explain the two options from fumes/guides/manual.md and
    fumes/guides/command.md. For a command provider, write the script following command.md's
    contract, show it to me before running it, and save its key with `fumes key set <id>`.
