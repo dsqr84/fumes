@@ -37,6 +37,7 @@ class Config:
     font_size: float | None = None   # points; None = size the figures to match the logos
     limits_url: str = DEFAULT_LIMITS_URL
     limits_refresh_minutes: float = 2
+    limits_poll_minutes: float = 5   # how often Claude Code on this computer is asked (`claude -p /usage`); 0 = never
     show_limits: bool = True
     limits_link: str = CLAUDE_USAGE_URL   # [links] claude: kept apart from `links` (provider ids)
     browser: str = "chrome"   # "chrome" tries Chrome first; "default" uses the system browser
@@ -83,6 +84,7 @@ _RULES = {
     "browser": lambda v: v in BROWSERS,
     "limits_url": _nonempty_str,
     "limits_refresh_minutes": _pos_num,
+    "limits_poll_minutes": lambda v: _is_num(v) and (v == 0 or 1 <= v <= 1440),
     "show_limits": lambda v: isinstance(v, bool),
 }
 

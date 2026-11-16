@@ -98,8 +98,11 @@ balance as JSON; [`fumes/guides/command.md`](fumes/guides/command.md) has the co
 for having an AI write it). To build one into Fumes for everyone, see
 [`docs/ADDING-A-PROVIDER.md`](docs/ADDING-A-PROVIDER.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-**Claude limits** come from Claude Code: set its status line to `python -m fumes.statusline` (see
-[`fumes/guides/claude.md`](fumes/guides/claude.md)) and the cell fills in during your sessions.
+**Claude limits** come from Claude Code on the same computer. If it is installed, Fumes asks it every
+five minutes (`claude -p /usage`: a local command, no model call, no cost), which also gives the
+per-model weekly limit shown as a blue bar. Setting Claude Code's status line to
+`python -m fumes.statusline` (see [`fumes/guides/claude.md`](fumes/guides/claude.md)) adds a reading
+after every answer while you work. `limits_poll_minutes = 0` turns the asking off.
 
 ## Configure
 

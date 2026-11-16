@@ -56,3 +56,11 @@ def server():
 def qapp():
     from PyQt6.QtWidgets import QApplication
     return QApplication.instance() or QApplication([])
+
+
+@pytest.fixture(autouse=True)
+def no_real_claude(monkeypatch):
+    """No test may start the Claude Code installed on this machine: the poll finds nothing unless a test
+    hands it a program."""
+    from fumes import usagepoll
+    monkeypatch.setattr(usagepoll, "find_claude", lambda *a, **k: None)

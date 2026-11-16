@@ -692,6 +692,24 @@ class LimitsThread(QThread):
             self.done.emit(None, None, str(e))
 
 
+class UsagePollThread(QThread):
+    """One `claude -p /usage` poll (usagepoll.poll), off the UI thread: it can take seconds."""
+    done = pyqtSignal(bool, str)  # the limits file changed?, error text ("" = it answered)
+
+    def __init__(self, folder, claude, parent=None):
+        super().__init__(parent)
+        self.folder, self.claude = folder, claude
+
+    def run(self):
+        from . import usagepoll
+        try:
+            self.done.emit(usagepoll.poll(self.folder, self.claude), "")
+        except usagepoll.PollError as e:
+            self.done.emit(False, str(e))
+        except Exception as e:  # noqa: BLE001 (never reach the UI thread)
+            self.done.emit(False, type(e).__name__)
+
+
 class FetchThread(QThread):
     done = pyqtSignal(object, object, str)  # feed or None, raw or None, error text
 
@@ -828,6 +846,11 @@ class App:
         if cfg.show_limits:
             self.limits_timer.timeout.connect(self.refresh_limits)
             self.limits_timer.start(int(cfg.limits_refresh_minutes * 60_000))
+        self.poll_thread, self.poll_error, self._claude = None, "", None
+        self.poll_timer = QTimer()
+        self.poll_timer.timeout.connect(self.poll_usage)
+        if cfg.show_limits and cfg.limits_poll_minutes > 0:
+            self.poll_timer.start(int(cfg.limits_poll_minutes * 60_000))
         self.tick_timer = QTimer()
         self.tick_timer.timeout.connect(self.tick)
         self.tick_timer.start(2000)
@@ -838,6 +861,7 @@ class App:
         self._update_tray_tip()
         self.refresh()
         self.refresh_limits()
+        QTimer.singleShot(3000, self.poll_usage)      # after the strip is up: starting Claude Code takes seconds
 
     def restart(self):
         """Start a fresh copy, then quit this one. If the new one cannot start, keep running."""
@@ -929,6 +953,7 @@ class App:
     def refresh_all(self):
         self.refresh()
         self.refresh_limits()
+        self.poll_usage()
 
     def refresh_limits(self):
         """Fetch the Claude limits on their own thread, or read the status line's local file when no
@@ -946,6 +971,29 @@ class App:
             lambda lim, raw, err, url=url: self._limits_fetched(lim, raw, err) if url == self.cfg.limits_url else None)
         self.limits_thread.start()
 
+    def poll_usage(self):
+        """Ask Claude Code on this computer for the limits (usagepoll), when they are read locally and it
+        is installed. Its answer lands in claude-limits.json, which is then read like a status line write."""
+        if not self.cfg.show_limits or self.cfg.limits_url or self.cfg.limits_poll_minutes <= 0:
+            return
+        if self.poll_thread is not None and self.poll_thread.isRunning():
+            return
+        from . import usagepoll
+        self._claude = self._claude or usagepoll.find_claude()
+        if not self._claude:
+            self.poll_error = "Claude Code was not found on this computer"
+            return
+        self.poll_thread = UsagePollThread(self.folder, self._claude)
+        self.poll_thread.done.connect(self._usage_polled)
+        self.poll_thread.start()
+
+    def _usage_polled(self, changed, error):
+        self.poll_error = error
+        if error:
+            self._claude = None               # look for the program again next time: it may have moved
+        elif not self.cfg.limits_url:
+            self._read_local_limits()
+
     def limits_source_changed(self):
         """Settings changed cfg.limits_url: drop the other source's reading and read the new one now."""
         old = self.limits_thread
@@ -954,6 +1002,7 @@ class App:
         self.limits_thread = None
         self.strip.set_limits(None, failed=False)
         self.refresh_limits()
+        self.poll_usage()                     # back on this computer: ask Claude Code now, not in 5 minutes
 
     LOCAL_LIMITS_MAX = 64 * 1024
 

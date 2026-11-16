@@ -34,6 +34,10 @@ These are durable facts about the code: how the parts fit and what is baked in t
   have no balance API; `day_spend` keeps today's spend from being subtracted twice, since costs come per whole day)
   and balance samples (DeepSeek has no usage API: spend is the falls between readings, rises are top-ups).
   Loaded as untrusted; replaced atomically.
+- **Claude limits, asked** (`usagepoll.py`, Qt-free; `ui.UsagePollThread`): with no `limits_url` and
+  `limits_poll_minutes` above 0, the App runs `claude -p /usage` on a timer and writes the report's windows and
+  per-model weekly limits over `claude-limits.json` (downwards too: the status line never lowers a reading, so a
+  limit reset early froze it). Tests never start the real program (`conftest.no_real_claude`).
 - **Claude limits, local** (`statusline.py`): `python -m fumes.statusline` as Claude Code's status line writes
   `claude-limits.json` in the config folder; with no `limits_url` the App reads that file (64 KB cap; no file is
   "no reading", a bad one dims the cell). It must never import Qt (a test checks) and never print an error.

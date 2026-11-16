@@ -21,6 +21,11 @@ what they get, and steps to reproduce; never include a real key.
 - **A bad value never takes the app down.** Under PyQt6 an exception escaping any Qt callback would
   abort the process; Fumes installs its own exception hook and guards every paint, so the worst case
   is one blank frame.
+- **The Claude limits poll** starts one program Fumes chose itself: `claude -p /usage`, every five
+  minutes, when limits are read on this computer. The program is taken from `~/.local/bin` or an
+  absolute PATH folder, never the current folder; on Windows only a real `claude.exe`, never a `.cmd`
+  shim. It gets a fixed argument list, no shell, a time limit and an output cap, and what it prints is
+  treated as untrusted. `limits_poll_minutes = 0` turns it off.
 - **Command providers** run a program you configured yourself, as a list of arguments with no shell,
   no console, its own key only (as `FUMES_KEY`), bounded output and a timeout. Batch files are
   refused, because Windows passes their arguments through `cmd.exe`. Commands are never taken from a

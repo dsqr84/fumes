@@ -16,6 +16,17 @@ line script that saves each reading where Fumes can see it.
 The readings stay on your computer: the script writes one small file in the Fumes folder and sends
 nothing anywhere.
 
+## Fumes also asks Claude Code itself
+
+When the Claude Code program is installed on this computer, Fumes starts it in the background every
+five minutes with the `/usage` command and records the answer. That is a local command: it makes no
+model call, costs nothing and leaves no session behind. It is what provides the blue per-model bar
+(for example Fable), and it corrects the bars when a limit is reset early. It works without the status
+line, so the set-up above is optional; with both, the bars also move after each answer.
+
+On Windows this needs Claude Code's own installer (`claude.exe`); the npm version is not started. To
+turn it off, set `limits_poll_minutes = 0` in `config.toml`.
+
 ## Claude Code on another computer
 
 If Claude Code runs on a different computer, the status line there writes the readings there. Publish

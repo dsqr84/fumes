@@ -778,7 +778,14 @@ class ClaudePage(Page):
         if url:
             self.source.setText(f"Reading the limits from an address: {url}")
             return
-        self.source.setText("Reading the limits from this computer's Claude Code status line.")
+        mins = getattr(self.w.cfg, "limits_poll_minutes", 0) if self.w.cfg is not None else 0
+        if mins > 0 and self.w.claude_found():
+            self.source.setText(f"Reading the limits from Claude Code on this computer: Fumes asks it every "
+                                f"{mins:g} minutes, and the status line below adds readings while you work.")
+        else:
+            self.source.setText("Reading the limits from this computer's Claude Code status line."
+                                + ("" if mins <= 0 else " Claude Code itself was not found here, so the "
+                                   "per-model bar (Fable) is not available."))
         upd = self.last_reading()
         self.last.setText(f"Last reading: {upd}" if upd else "No reading yet")
 
@@ -853,6 +860,7 @@ class SettingsWindow(QWidget):
         self.cfg, self.autostart_action, self.on_refresh = cfg, autostart_action, on_refresh
         self.config_path = Path(config_path) if config_path else None     # None: Settings cannot change config.toml
         self.on_limits_source = on_limits_source
+        self._claude_found = None
         self.theme = theme if theme in ("dark", "light") else "dark"
         self.colors = DARK if self.theme == "dark" else LIGHT
         self._opener, self._confirm, self.dpr = opener, confirm, dpr
@@ -1011,6 +1019,13 @@ class SettingsWindow(QWidget):
         box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         box.setDefaultButton(QMessageBox.StandardButton.No)
         return box.exec() == QMessageBox.StandardButton.Yes
+
+    def claude_found(self):
+        """Is the Claude Code program on this computer (so the limits can be asked for directly)?"""
+        from . import usagepoll
+        if self._claude_found is None:
+            self._claude_found = bool(usagepoll.find_claude())
+        return self._claude_found
 
     def set_limits_url(self, url):
         """Save the Claude limits address ("" = this computer) to config.toml and apply it now.

@@ -13,7 +13,7 @@ EXCLUDES = ["tkinter", "unittest", "pydoc", "PyQt6.QtWebEngineCore", "PyQt6.QtQm
 
 app = Analysis([os.path.join(SPECPATH, "fumes_app.py")], pathex=[ROOT], datas=DATAS,
                hiddenimports=["fumes.collect.deepseek", "fumes.collect.openai", "fumes.collect.fal",
-                              "fumes.collect.anthropic", "fumes.settings", "fumes.details", "fumes.peek"],
+                              "fumes.collect.anthropic", "fumes.settings", "fumes.details", "fumes.peek", "fumes.usagepoll"],
                excludes=EXCLUDES)
 cli = Analysis([os.path.join(SPECPATH, "fumes_cli.py")], pathex=[ROOT], datas=DATAS,
                hiddenimports=["fumes.collect.deepseek", "fumes.collect.openai", "fumes.collect.fal",
