@@ -137,7 +137,8 @@ def test_find_claude_never_looks_in_the_current_folder(tmp_path, monkeypatch):
     assert usagepoll.find_claude(env, home, "linux") is None
     real = bindir / "claude"
     real.write_text("#!/bin/sh\n")
-    assert usagepoll.find_claude(env, home, "linux") is None        # not executable
+    if os.name != "nt":                                              # Windows has no executable bit to lack
+        assert usagepoll.find_claude(env, home, "linux") is None    # not executable
     real.chmod(0o755)
     assert usagepoll.find_claude(env, home, "linux") == str(real)
     own = home / ".local" / "bin" / "claude"
