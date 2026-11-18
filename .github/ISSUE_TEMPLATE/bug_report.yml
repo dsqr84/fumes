@@ -29,14 +29,11 @@ body:
     id: doctor
     attributes:
       label: Output of fumes-cli doctor
-      description: Run `fumes-cli doctor` in the Fumes folder and paste what it prints. It never prints a key.
+      description: |
+        Run `fumes-cli doctor` in the Fumes folder (from source: `.venv\Scripts\python -m fumes doctor`) and paste what it prints. It includes your Fumes version.
+        It never prints a key, but it does show your config folder path, which contains your Windows user name, and the names of any custom providers. Read it before posting and replace anything you would rather keep private.
+        If doctor will not run, write what happens when you try.
       render: text
-  - type: input
-    id: version
-    attributes:
-      label: Fumes version
-      description: Shown in Settings, General.
-      placeholder: 0.1.0
     validations:
       required: true
   - type: dropdown
