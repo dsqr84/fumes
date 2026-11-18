@@ -87,8 +87,8 @@ replaces the copy that is already running.
 A full Admin key does far more than read costs. It can create and delete other keys, invite people
 to your organisation and change its settings.
 
-- **How to limit the key.** On OpenAI, choose **Read only** when you create it. Anthropic has no
-  such setting, so set an expiry date instead. Each provider's guide in
+- **How to limit the key.** On OpenAI, choose **Restricted** when you create it and set only
+  **Usage** to **Read**. Anthropic has no such setting, so set an expiry date instead. Each provider's guide in
   [`fumes/guides/`](fumes/guides/) has a **Limit this key** section.
 - **What Fumes does with it.** It calls the provider's cost report and nothing else. The key stays
   in Windows Credential Manager and goes only to that provider.

@@ -21,6 +21,6 @@ The rules there are absolute. In short:
   limits itself. Never add or replace one in `~/.claude/settings.json`.
 
 Provider facts (also in `fumes/guides/<provider>.md`): OpenAI and Anthropic need Admin keys
-(OpenAI's with Read only permissions; Anthropic's with an expiry date), and an individual Anthropic Console account must be converted to a team first; fal needs a key on the
+(OpenAI's Restricted, with only Usage set to Read; Anthropic's with an expiry date), and an individual Anthropic Console account must be converted to a team first; fal needs a key on the
 read-only BILLING preset; OpenAI and Anthropic also need the credit balance entered with
 `python -m fumes anchor <provider> <amount>`.
