@@ -46,7 +46,7 @@ anyway**, only for a file whose checksum you have checked.
 ## Install and run from source (Windows 11, Python 3.11+)
 
 ```
-git clone https://github.com/<owner>/fumes.git
+git clone https://github.com/dsqr84/fumes.git
 cd fumes
 py -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
