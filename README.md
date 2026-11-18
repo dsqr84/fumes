@@ -16,7 +16,8 @@ is left on your AI accounts:
 
 1. **Download and run.** Unzip the release and run `Fumes.exe` ([Download](#download-windows-11)).
 2. **Add a key.** Right-click the strip, choose **Settings**, pick a provider and paste its key
-   ([Add your keys](#add-your-keys)).
+   ([Add your keys](#add-your-keys)). OpenAI and Anthropic need an Admin key: read
+   [About Admin keys](#about-admin-keys) first.
 3. **Read the strip.** The balance appears beside the provider's logo. Claude limits appear by
    themselves when Claude Code is signed in on this computer.
 
@@ -79,13 +80,31 @@ py -m venv .venv
 Use `python -m fumes` instead of `pythonw` to see errors on the console. Starting Fumes again
 replaces the copy that is already running.
 
+## About Admin keys
+
+**OpenAI and Anthropic need an Admin key.** Their spend reports refuse ordinary keys, so Fumes has
+no narrower option to offer.
+
+An Admin key does far more than read costs. It can create and delete other keys, invite people to
+your organisation and change its settings.
+
+- **What Fumes does with it.** It calls the provider's cost report and nothing else. The key stays
+  in Windows Credential Manager and goes only to that provider.
+- **What Fumes cannot prevent.** Any program running under your Windows account can read your saved
+  credentials. If your computer is compromised, so is the key.
+- **How to lower the risk.** Create a key only for Fumes and name it `Fumes`, so you can revoke it
+  alone. Set a spend limit in the provider's billing settings, or turn off automatic top-ups.
+- **How to skip it.** Claude limits need no key. DeepSeek takes an ordinary API key and fal.ai a
+  read-only billing key. You can leave OpenAI and Anthropic out, or track either as a
+  [manual provider](fumes/guides/manual.md), where you type in the balance yourself.
+
 ## Add your keys
 
 Each provider needs its own key. The guides in [`fumes/guides/`](fumes/guides/) say which kind to
 create and where.
 
-**Read [Keeping your keys safe](fumes/guides/key-safety.md) first.** Some of these are Admin keys,
-which can manage your whole account, not just read it.
+**Read [Keeping your keys safe](fumes/guides/key-safety.md) first.** It covers every key, not only
+Admin keys: where keys leak, and what to do if one does.
 
 ### In Settings
 
