@@ -1,0 +1,55 @@
+name: Report a problem
+description: Something in Fumes is wrong, missing or confusing
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never paste an API key here**, or any part of one. If a key ends up in an issue, revoke it at the provider straight away.
+
+        For a security problem, use **Report a vulnerability** on the Security tab instead of this form.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to see it
+      placeholder: |
+        1. Right-click the strip
+        2. Choose Settings
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of fumes-cli doctor
+      description: Run `fumes-cli doctor` in the Fumes folder and paste what it prints. It never prints a key.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Fumes version
+      description: Shown in Settings, General.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: How you run Fumes
+      options:
+        - The release download (Fumes.exe)
+        - From source (python -m fumes)
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version and display scaling
+      description: For example "Windows 11 24H2, 150 %". Find scaling under Settings, System, Display.
