@@ -82,18 +82,21 @@ replaces the copy that is already running.
 
 ## About Admin keys
 
-**OpenAI and Anthropic need an Admin key.** Their spend reports refuse ordinary keys, so Fumes has
-no narrower option to offer.
+**OpenAI and Anthropic need an Admin key.** Their spend reports refuse ordinary keys.
 
-An Admin key does far more than read costs. It can create and delete other keys, invite people to
-your organisation and change its settings.
+A full Admin key does far more than read costs. It can create and delete other keys, invite people
+to your organisation and change its settings.
 
+- **How to limit the key.** On OpenAI, choose **Read only** when you create it. Anthropic has no
+  such setting, so set an expiry date instead. Each provider's guide in
+  [`fumes/guides/`](fumes/guides/) has a **Limit this key** section.
 - **What Fumes does with it.** It calls the provider's cost report and nothing else. The key stays
   in Windows Credential Manager and goes only to that provider.
 - **What Fumes cannot prevent.** Any program running under your Windows account can read your saved
   credentials. If your computer is compromised, so is the key.
-- **How to lower the risk.** Create a key only for Fumes and name it `Fumes`, so you can revoke it
-  alone. Set a spend limit in the provider's billing settings, or turn off automatic top-ups.
+- **Other ways to lower the risk.** Create a key only for Fumes and name it `Fumes`, so you can
+  revoke it alone. Set a spend limit in the provider's billing settings, or turn off automatic
+  top-ups.
 - **How to skip it.** Claude limits need no key. DeepSeek takes an ordinary API key and fal.ai a
   read-only billing key. You can leave OpenAI and Anthropic out, or track either as a
   [manual provider](fumes/guides/manual.md), where you type in the balance yourself.

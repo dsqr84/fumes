@@ -7,13 +7,17 @@ API.
 
 1. Sign in at [fal.ai](https://fal.ai/dashboard/keys) and open **Keys**. If you work in a team,
    pick the team in the top-left corner first: keys belong to the account that creates them.
-2. Create a key named `Fumes` with the **`BILLING`** preset. It can read your balance and usage and
-   nothing else: it cannot call models or change your account, so it is the safest key to give Fumes.
-   (`FULL` also works, but grants far more than Fumes needs; the default `API` preset is refused by
-   the usage API.)
+2. Create a key named `Fumes` with the **`BILLING`** preset.
 3. Copy it (it is shown only once), paste it into the key field here and choose **Test**.
 
-Fumes keeps the key in Windows Credential Manager and sends it only to `api.fal.ai`.
+## Limit this key
+
+- **Choose the `BILLING` preset.** It can read your balance and usage and nothing else. It cannot
+  call models or change your account, so it is the safest key to give Fumes.
+- **Avoid the other presets.** `FULL` also works, but grants far more than Fumes needs. The
+  default `API` preset is refused by the usage API.
+- **Where it goes.** Fumes keeps the key in Windows Credential Manager and sends it only to
+  `api.fal.ai`.
 
 ## What you will see
 

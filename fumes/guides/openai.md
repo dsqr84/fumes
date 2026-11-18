@@ -9,11 +9,19 @@ The costs API only accepts an **Admin key**, not an ordinary project key.
 
 1. Sign in at [platform.openai.com](https://platform.openai.com/settings/organization/admin-keys) as an
    organisation **Owner** and open **Settings → Organization → Admin keys**.
-2. Choose **Create new admin key**, name it `Fumes`, and copy it (it starts with `sk-admin-`).
-3. Paste it into the key field here and choose **Test**.
+2. Choose **Create new admin key** and name it `Fumes`.
+3. Under **Permissions**, choose **Read only**.
+4. Create the key and copy it (it starts with `sk-admin-`).
+5. Paste it into the key field here and choose **Test**.
 
-An Admin key can manage your organisation, not just read costs. Fumes only ever calls the costs
-endpoint with it, keeps it in Windows Credential Manager, and sends it only to `api.openai.com`.
+## Limit this key
+
+- **Choose Read only.** A full Admin key can manage your organisation: create keys, invite people
+  and change settings. A Read only key can look but not change anything. Fumes only reads the
+  costs report, so it needs nothing more.
+- **Use it for Fumes alone.** Named `Fumes`, it can be revoked without breaking anything else.
+- **Where it goes.** Fumes keeps the key in Windows Credential Manager and sends it only to
+  `api.openai.com`.
 
 ## Enter your credit
 

@@ -18,8 +18,8 @@ Steps:
    subscription with Claude Code, and any other AI service.
 3. For each API provider I use, tell me exactly which key to create, using these facts:
    - DeepSeek: any API key, from platform.deepseek.com, API keys.
-   - OpenAI: an Admin key (sk-admin-...), created by an organisation Owner at
-     platform.openai.com, Settings, Organization, Admin keys. Not a project key.
+   - OpenAI: an Admin key (sk-admin-...) with Read only permissions, created by an organisation
+     Owner at platform.openai.com, Settings, Organization, Admin keys. Not a project key.
    - Anthropic API: an Admin key (sk-ant-admin...) from platform.claude.com, Settings, Admin keys.
      An individual Console account has no Admin API: if I have no Admin keys page, I must first
      convert my account to a team at Settings, Organization (I can be its only member).

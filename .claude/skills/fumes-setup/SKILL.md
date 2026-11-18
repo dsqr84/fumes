@@ -20,7 +20,7 @@ The rules there are absolute. In short:
 - **Leave Claude Code's settings alone.** Fumes needs no status line: it asks Claude Code for the
   limits itself. Never add or replace one in `~/.claude/settings.json`.
 
-Provider facts (also in `fumes/guides/<provider>.md`): OpenAI and Anthropic need Admin keys, and an
-individual Anthropic Console account must be converted to a team first; fal needs a key on the
+Provider facts (also in `fumes/guides/<provider>.md`): OpenAI and Anthropic need Admin keys
+(OpenAI's with Read only permissions; Anthropic's with an expiry date), and an individual Anthropic Console account must be converted to a team first; fal needs a key on the
 read-only BILLING preset; OpenAI and Anthropic also need the credit balance entered with
 `python -m fumes anchor <provider> <amount>`.

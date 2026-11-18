@@ -17,11 +17,18 @@ the right key. Convert it to a team first; you can be its only member.
    and follow the prompt to turn your individual account into a team (organisation).
 2. **Create the Admin key:** as the team's admin, open
    [Settings → Admin keys](https://platform.claude.com/settings/admin-keys), create a key named `Fumes`,
-   and copy it.
+   pick an expiry date, and copy it.
 3. Paste it into the key field here and choose **Test**.
 
-An Admin key can manage your organisation, not just read costs. Fumes only calls the cost report
-with it, keeps it in Windows Credential Manager, and sends it only to `api.anthropic.com`.
+## Limit this key
+
+- **There are no permissions to choose.** Every Console Admin key has full access. It can manage
+  your organisation as well as read costs, and Anthropic offers no read-only kind.
+- **Set an expiry date.** A key that expires limits how long a leak can last. When it runs out,
+  Fumes shows Anthropic as not connected until you save a new key.
+- **Use it for Fumes alone.** Named `Fumes`, it can be revoked without breaking anything else.
+- **Where it goes.** Fumes only calls the cost report with it, keeps it in Windows Credential
+  Manager and sends it only to `api.anthropic.com`.
 
 ## Enter your credit
 
