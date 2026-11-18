@@ -1,7 +1,7 @@
 # Security
 
-Fumes holds API keys, some of which (OpenAI and Anthropic Admin keys) can manage a whole
-organisation. Please treat security reports accordingly.
+Fumes holds API keys. Some of them (OpenAI and Anthropic Admin keys) can manage a whole
+organisation.
 
 ## Reporting a vulnerability
 

@@ -1,47 +1,70 @@
 # Fumes
 
-**Know before you're running on fumes.** A slim strip over the Windows 11 taskbar that shows what is
-left on each of your AI accounts: the prepaid balance on every API provider, and how much of your
-Claude subscription's 5-hour and weekly windows you have used.
+**Know before you're running on fumes.** A slim strip over the Windows 11 taskbar that shows what
+is left on your AI accounts:
+
+- the prepaid balance on each API provider
+- how much of your Claude subscription's 5-hour and weekly limits you have used
 
 ![Fumes on a dark taskbar](docs/screenshot-dark.png)
 
-> **Status: pre-release.** Fumes reads DeepSeek, OpenAI, fal.ai and the Anthropic API with your own
-> keys, kept in Windows Credential Manager. A Settings window, a details window and a Windows
-> installer are being built before the first release; until then keys are added from the command line.
+> **Status: first release (v0.1.0), Windows 11 only.** Fumes reads DeepSeek, OpenAI, fal.ai and the
+> Anthropic API with your own keys, kept in Windows Credential Manager. The download is a zip:
+> there is no installer yet, and the programs are not code-signed.
+
+## Get started
+
+1. **Download and run.** Unzip the release and run `Fumes.exe` ([Download](#download-windows-11)).
+2. **Add a key.** Right-click the strip, choose **Settings**, pick a provider and paste its key
+   ([Add your keys](#add-your-keys)).
+3. **Read the strip.** The balance appears beside the provider's logo. Claude limits appear by
+   themselves when Claude Code is signed in on this computer.
 
 ## What it shows
 
-- **Two rows, like the taskbar clock.** Providers sit two to a column, each a logo and its balance
-  (or `mtd $6.10`, month-to-date spend, for a provider with no balance; an en dash when neither is
-  known).
+- **Balances, in two rows.** Providers sit two to a column, like the taskbar clock. Each shows its
+  logo and balance. A provider with no balance shows its spend for the month so far, as
+  `mtd $6.10`. An en dash means neither is known.
 - **Claude limits.** The leftmost cell: `5h` above `wk`, each a small bar that fills from the left.
   The colour is the reading: green while there is room, yellow around half, red near the cap. Hover
   for the percentages and reset times.
-- **Peeks.** Click a provider for its peek: credit left, month to date, the last 30 days, a daily
-  spend chart, the spend by model, and links to that provider's console. Click another provider to
-  switch; anywhere else (or Esc) closes it.
+- **A closer look.** Click a provider to open its peek, a small panel with the credit left, the
+  month to date, the last 30 days, a daily spend chart, the spend by model, and links to that
+  provider's console. Click another provider to switch. Click anywhere else, or press Esc, to
+  close it.
 
   <img src="docs/screenshot-peek.png" alt="The OpenAI peek" width="368">
-- **Trust at a glance.** A cell at full strength is live. A dimmed one is stale or failing, with its
-  age shown when the whole strip is out of date.
-- **Out of the way.** The chevron folds the strip down to just the Claude cell. Right-click for Move
-  (drag it along the taskbar), Collapsed, Refresh now, Start with Windows, Restart and Quit.
+- **Live or stale.** A cell at full strength is live. A dimmed cell is stale or failing. When the
+  whole strip is out of date, it shows its age.
+- **Collapse.** The chevron folds the strip down to just the Claude cell.
+- **The menu.** Right-click the strip for:
+  - **Move** (drag it along the taskbar) and **Reset position**
+  - **Collapsed**
+  - **Settings**, where you add keys and providers
+  - **Refresh now**
+  - **Details**: totals, a 30-day spend chart and a card for each provider
+  - **Start with Windows**
+  - **Restart** and **Quit**
 
 ## Download (Windows 11)
 
-Get `Fumes-<version>-windows-x64.zip` from the [Releases](https://github.com/dsqr84/fumes/releases)
-page, unzip it anywhere you like (for example `%LOCALAPPDATA%\Programs\Fumes`) and run `Fumes.exe`.
-The folder also holds `fumes-cli.exe`, the command-line version, used for `fumes-cli key set ...`,
-and `fumes-cli doctor`.
+1. Get `Fumes-<version>-windows-x64.zip` from the
+   [Releases](https://github.com/dsqr84/fumes/releases) page.
+2. Unzip it anywhere you like, for example `%LOCALAPPDATA%\Programs\Fumes`.
+3. Run `Fumes.exe`.
 
-**Check what you downloaded.** Each release has a `.sha256` file:
-`Get-FileHash Fumes-<version>-windows-x64.zip` in PowerShell must print the same value. Releases are
-built on GitHub's own runners from the tagged source by
-[`.github/workflows/release.yml`](.github/workflows/release.yml), with a build provenance
-attestation you can check with `gh attestation verify <zip> --repo dsqr84/fumes`. The programs are
-not code-signed, so Windows SmartScreen may warn the first time: choose **More info**, then **Run
-anyway**, only for a file whose checksum you have checked.
+The folder also holds `fumes-cli.exe`, the command-line version. The commands on this page use it.
+
+### Check what you downloaded
+
+- **Checksum.** Each release has a `.sha256` file. In PowerShell,
+  `Get-FileHash Fumes-<version>-windows-x64.zip` must print the same value.
+- **Where it was built.** Releases are built on GitHub's own runners from the tagged source by
+  [`.github/workflows/release.yml`](.github/workflows/release.yml). Check the build provenance
+  attestation with `gh attestation verify <zip> --repo dsqr84/fumes`.
+- **SmartScreen.** The programs are not code-signed, so Windows SmartScreen may warn the first
+  time. Choose **More info**, then **Run anyway**, and only for a file whose checksum you have
+  checked.
 
 ## Install and run from source (Windows 11, Python 3.11+)
 
@@ -58,52 +81,82 @@ replaces the copy that is already running.
 
 ## Add your keys
 
-Each provider needs its own key; [`fumes/guides/`](fumes/guides/) says which kind and where to
-create it. **Read [Keeping your keys safe](fumes/guides/key-safety.md) first:** some of these are Admin
-keys, which can manage your whole account, not just read it. Until the Settings window lands, from the Fumes folder:
+Each provider needs its own key. The guides in [`fumes/guides/`](fumes/guides/) say which kind to
+create and where.
+
+**Read [Keeping your keys safe](fumes/guides/key-safety.md) first.** Some of these are Admin keys,
+which can manage your whole account, not just read it.
+
+### In Settings
+
+1. Right-click the strip and choose **Settings**.
+2. Pick the provider, paste the key and choose **Save**. **Test** checks that the key works.
+3. For OpenAI and Anthropic, also enter your **credit balance**: the amount your billing page
+   shows now. These two cannot report a balance, so Fumes subtracts your spend from that figure.
+
+### From the command line
 
 ```
-.venv\Scripts\python -m fumes key set openai        # asks for the key; nothing is shown or saved to a file
-.venv\Scripts\python -m fumes anchor openai 25.00   # OpenAI and Anthropic: the credit your billing page shows
-.venv\Scripts\python -m fumes key list              # which providers have a key (never the key itself)
-.venv\Scripts\python -m fumes collect               # ask every provider once and print the result
-.venv\Scripts\python -m fumes status               # what is set up, in a table (add --json for scripts)
-.venv\Scripts\python -m fumes doctor               # checks each step, says what to fix, never prints a key
+fumes-cli key set openai        # asks for the key; nothing is shown or saved to a file
+fumes-cli anchor openai 25.00   # OpenAI and Anthropic: the credit balance your billing page shows
+fumes-cli key list              # which providers have a key (never the key itself)
+fumes-cli collect               # ask every provider once and print the result
+fumes-cli status                # what is set up, in a table (add --json for scripts)
+fumes-cli doctor                # checks each step and says what to fix
 ```
+
+Running from source? Use `.venv\Scripts\python -m fumes` in place of `fumes-cli`.
 
 Neither `status` nor `doctor` ever prints a key or any part of one.
 
-**Set up with an AI assistant.** Paste the prompt from [`docs/SETUP-WITH-AI.md`](docs/SETUP-WITH-AI.md)
-(also `fumes setup-prompt`, or **Copy setup prompt** in Settings, General) into Claude Code or another
-assistant that can run commands. It walks you through each provider, but **your keys are never given to
-the assistant**: it runs `fumes key set`, and you paste each key into that hidden prompt yourself.
+### With an AI assistant
 
-In **Claude Code**, the same steps come as skills: they load by themselves when you open Claude Code in
-the Fumes folder, or install them anywhere with
+Paste the prompt from [`docs/SETUP-WITH-AI.md`](docs/SETUP-WITH-AI.md) into Claude Code or another
+assistant that can run commands. You can also get the prompt from `fumes-cli setup-prompt`, or from
+**Copy setup prompt** in Settings, General.
+
+The assistant walks you through each provider, but **your keys are never given to it**. It runs
+`fumes-cli key set`, and you paste each key into that hidden prompt yourself.
+
+In **Claude Code**, the same steps come as skills. They load by themselves when you open Claude
+Code in the Fumes folder. To install them anywhere, run:
 
 ```
 /plugin install fumes --marketplace dsqr84/fumes
 ```
 
-then ask Claude to "set up Fumes" (the `fumes-setup` skill) or to add a service Fumes does not support
-(`fumes-add-provider`).
+Then ask Claude to "set up Fumes" (the `fumes-setup` skill) or to add a service Fumes does not
+support (`fumes-add-provider`).
 
-Keys are generic credentials named `Fumes/<provider>` in Windows Credential Manager, readable only by
-your Windows account. Fumes sends each one only to that provider's own API, over HTTPS.
+### Where keys are kept
 
-**Any other service** can be added in Settings with **Add provider**: a *manual* one (you enter the
-balance, optionally with a daily burn) or a *command* one (a small program of yours that prints a
-balance as JSON; [`fumes/guides/command.md`](fumes/guides/command.md) has the contract and a prompt
-for having an AI write it). To build one into Fumes for everyone, see
+Keys are generic credentials named `Fumes/<provider>` in Windows Credential Manager, readable only
+by your Windows account. Fumes sends each one only to that provider's own API, over HTTPS.
+
+### Any other service
+
+Add it in Settings with **Add provider**. There are two kinds:
+
+- **Manual.** You enter the balance. You can also set a daily burn, what the service costs you on
+  a typical day, and Fumes counts the balance down by it.
+- **Command.** A small program of yours prints a balance as JSON.
+  [`fumes/guides/command.md`](fumes/guides/command.md) has the contract and a prompt for having an
+  AI write it.
+
+To build a provider into Fumes for everyone, see
 [`docs/ADDING-A-PROVIDER.md`](docs/ADDING-A-PROVIDER.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-**Claude limits** come from Claude Code on the same computer, with nothing to set up. Every five
-minutes Fumes asks Anthropic for your usage with the sign-in Claude Code already keeps there (one
-request to `api.anthropic.com`; the sign-in is never saved, changed or sent elsewhere), and falls back
-to running `claude -p /usage` (a local command, no model call). That also gives the per-model weekly
-limit shown as a blue bar. Fumes does not touch Claude Code's settings
-([`fumes/guides/claude.md`](fumes/guides/claude.md)). `limits_use_signin = false` and
-`limits_poll_minutes = 0` turn these off.
+### Claude limits
+
+Claude limits come from Claude Code on the same computer. There is nothing to set up.
+
+- Every five minutes, Fumes asks Anthropic for your usage with the sign-in Claude Code already
+  keeps on this computer. That is one request to `api.anthropic.com`. The sign-in is never saved,
+  changed or sent elsewhere.
+- If that fails, Fumes runs `claude -p /usage`, a local command that makes no model call.
+- The per-model weekly limit shows as a blue bar.
+- Fumes does not touch Claude Code's settings ([`fumes/guides/claude.md`](fumes/guides/claude.md)).
+- To turn these off, set `limits_use_signin = false` and `limits_poll_minutes = 0`.
 
 ## Configure
 
@@ -112,11 +165,13 @@ Settings live in `%APPDATA%\fumes\config.toml`; every key is optional (see
 `%APPDATA%\fumes\logos\<id>.svg` or `.png`. Window position, the collapsed state and the last
 good readings are kept in `state.json` in the same folder.
 
-- `url`, `limits_url`: an optional remote feed and Claude limits document, used instead of the
-  built-in collectors and the local status-line file when set. `limits_url` can also be set in
-  Settings, Claude limits; Settings changes only that one line of the file.
+- `url`, `limits_url`: addresses of a remote feed (a JSON document of balances and spend) and a
+  remote Claude limits document. When set, Fumes reads them instead of asking the providers and
+  Claude Code on this computer. `limits_url` can also be set in Settings, Claude limits; Settings
+  changes only that one line of the file.
 - `providers`: which providers to show, in order.
-- `anchor`: `tray` (default, left of the notification area), `left` or `right`.
+- `anchor`: where the strip sits. `tray` (default, left of the notification area), `left` or
+  `right`.
 - `theme`: `auto` (follows Windows), `dark` or `light`.
 - `[links]`: the console page opened from each provider's peek (http/https only). Links open in
   Chrome when it is installed (`browser = "default"` uses the system browser).

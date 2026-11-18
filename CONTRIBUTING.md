@@ -1,6 +1,6 @@
 # Contributing to Fumes
 
-Thanks for helping. Fumes holds people's API keys, so changes are held to a careful bar.
+Thanks for helping. Fumes holds people's API keys, so every change is reviewed with care.
 
 - **Run the tests** before you open a pull request:
   `QT_QPA_PLATFORM=offscreen python -m pytest` (see the README's Develop section).
@@ -9,7 +9,7 @@ Thanks for helping. Fumes holds people's API keys, so changes are held to a care
   ever lands in a commit, revoke it at the provider; removing the commit does not help.
 - **Security issues**: please report them privately (GitHub's "Report a vulnerability" on the
   repository) rather than in a public issue.
-- How the code fits together, and the landmines, are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+- How the code fits together, and what to watch out for, is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 By contributing you agree that your contribution is licensed under the GPL-3.0, like the rest of
 Fumes.

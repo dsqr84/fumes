@@ -81,5 +81,5 @@ jobs:
         shell: pwsh
         run: |
           gh release create "$env:GITHUB_REF_NAME" --draft --title "Fumes $env:GITHUB_REF_NAME" `
-            --notes "Unzip anywhere and run Fumes.exe. Check the download: compare its SHA-256 with the .sha256 file." `
+            --notes "Check the download first: its SHA-256 must match the .sha256 file. Then unzip it anywhere and run Fumes.exe. Windows SmartScreen may warn because the programs are not code-signed: choose More info, then Run anyway. To add a key, right-click the strip and choose Settings." `
             "$env:ZIP" "$env:ZIP.sha256"
